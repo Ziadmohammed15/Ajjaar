@@ -23,7 +23,7 @@ import CompleteProfile from './pages/CompleteProfile';
 import TermsAndConditions from './pages/TermsAndConditions';
 import { useAuth } from './context/AuthContext';
 
-function AppRoutes() {
+function App() {
   const [userType, setUserType] = useState<'client' | 'provider' | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -176,4 +176,4 @@ function AppRoutes() {
   );
 }
 
-export default AppRoutes;
+export default App;
