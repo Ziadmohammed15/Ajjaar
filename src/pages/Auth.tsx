@@ -135,7 +135,7 @@ const Auth = () => {
       if (error) throw error;
 
       showSuccess('تم إنشاء الحساب بنجاح. يمكنك تسجيل الدخول الآن.');
-     navigate('/choose-account-type');
+     navigate('/UserType');
       setUsername('');
       setEmail('');
       setPassword('');
