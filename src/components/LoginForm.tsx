@@ -1,35 +1,45 @@
 import React, { useState } from 'react';
-import { User, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface LoginFormProps {
-  onLogin: (username: string, password: string) => void;
+  onLogin: (email: string, password: string) => void;
   onSwitchToRegister: () => void;
 }
 
 const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSwitchToRegister }) => {
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState<{ username?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{email?: string; password?: string}>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const validateForm = () => {
-    const newErrors: typeof errors = {};
-    if (!username) newErrors.username = 'الاسم مطلوب';
-    if (!password) newErrors.password = 'كلمة المرور مطلوبة';
+    const newErrors: {email?: string; password?: string} = {};
+    
+    if (!email) {
+      newErrors.email = 'البريد الإلكتروني مطلوب';
+    }
+    
+    if (!password) {
+      newErrors.password = 'كلمة المرور مطلوبة';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!validateForm()) return;
-
+    
     setIsSubmitting(true);
+    
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // محاكاة استجابة API
-      onLogin(username, password);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      onLogin(email, password);
     } catch (error) {
       console.error('Login error:', error);
     } finally {
@@ -45,51 +55,67 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSwitchToRegister }) =>
       className="w-full"
     >
       <h2 className="text-3xl font-bold mb-6 text-center text-gradient">تسجيل الدخول</h2>
+      
       <form onSubmit={handleSubmit} className="glass-morphism p-6 rounded-2xl">
-        {/* اسم المستخدم */}
         <div className="mb-4">
-          <label htmlFor="username" className="block mb-2">اسم المستخدم</label>
+          <label htmlFor="email" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+            البريد الإلكتروني
+          </label>
           <div className="relative">
-            <User className="absolute right-3 top-3 text-secondary-400 w-5 h-5" />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <Mail className="w-5 h-5 text-secondary-400" />
+            </div>
             <input
-              id="username"
-              type="text"
-              className={`input-field pr-10 ${errors.username ? 'border-red-500' : ''}`}
-              placeholder="أدخل اسمك"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              type="email"
+              id="email"
+              className={`input-field pr-10 ${errors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
+              placeholder="أدخل بريدك الإلكتروني"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               disabled={isSubmitting}
             />
           </div>
-          {errors.username && <p className="text-red-500 text-sm">{errors.username}</p>}
+          {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
         </div>
-
-        {/* كلمة المرور */}
+        
         <div className="mb-6">
-          <label htmlFor="password" className="block mb-2">كلمة المرور</label>
+          <label htmlFor="password" className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+            كلمة المرور
+          </label>
           <div className="relative">
-            <Lock className="absolute right-3 top-3 text-secondary-400 w-5 h-5" />
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <Lock className="w-5 h-5 text-secondary-400" />
+            </div>
             <input
+              type={showPassword ? "text" : "password"}
               id="password"
-              type={showPassword ? 'text' : 'password'}
-              className={`input-field pr-10 ${errors.password ? 'border-red-500' : ''}`}
-              placeholder="********"
+              className={`input-field pr-10 ${errors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
+              placeholder="أدخل كلمة المرور"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={isSubmitting}
             />
             <button
               type="button"
-              className="absolute left-3 top-3"
+              className="absolute inset-y-0 left-0 flex items-center pl-3"
               onClick={() => setShowPassword(!showPassword)}
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showPassword ? (
+                <EyeOff className="w-5 h-5 text-secondary-400" />
+              ) : (
+                <Eye className="w-5 h-5 text-secondary-400" />
+              )}
             </button>
           </div>
-          {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+          {errors.password && <p className="mt-1 text-sm text-red-500">{errors.password}</p>}
         </div>
-
-        {/* زر الدخول */}
+        
+        <div className="flex justify-end mb-6">
+          <button type="button" className="text-primary-600 dark:text-primary-400 text-sm hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
+            نسيت كلمة المرور؟
+          </button>
+        </div>
+        
         <button
           type="submit"
           className="btn-modern w-full mb-4"
@@ -104,14 +130,13 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLogin, onSwitchToRegister }) =>
             'تسجيل الدخول'
           )}
         </button>
-
-        {/* الانتقال لإنشاء حساب */}
+        
         <p className="text-center text-secondary-600 dark:text-secondary-300">
           ليس لديك حساب؟{' '}
           <button
             type="button"
             onClick={onSwitchToRegister}
-            className="text-primary-600 dark:text-primary-400 font-medium hover:underline"
+            className="text-primary-600 dark:text-primary-400 font-medium hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
           >
             إنشاء حساب
           </button>
