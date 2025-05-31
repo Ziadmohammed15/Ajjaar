@@ -1,113 +1,100 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Lock, Eye, EyeOff, User } from 'lucide-react';
+import { Lock, Eye, EyeOff, User, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../services/supabaseClient';
+import bcrypt from 'bcryptjs';
 
-const PHONE_REGEX = /^\+[1-9]\d{1,14}$/;
+// لا حاجة لـ PHONE_REGEX أو التحقق برقم الجوال بعد الآن
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { signInWithPhone } = useAuth();
+  const { signIn } = useAuth();
   const { showError, showSuccess } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Login state
-  const [loginPhone, setLoginPhone] = useState('');
+  const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  
+
   // Register state
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
-  const validatePhoneNumber = (phoneNumber: string): boolean => {
-    let formattedPhone = phoneNumber;
-    if (!formattedPhone.startsWith('+')) {
-      formattedPhone = `+${formattedPhone}`;
-    }
-    return PHONE_REGEX.test(formattedPhone);
-  };
-
+  // تسجيل الدخول باسم المستخدم وكلمة المرور فقط
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
-    let formattedPhone = loginPhone;
-    if (!formattedPhone.startsWith('+')) {
-      formattedPhone = `+${formattedPhone}`;
-    }
-    
-    if (!validatePhoneNumber(formattedPhone)) {
-      setError('يجب إدخال رقم الهاتف بالتنسيق الدولي (مثال: +966501234567)');
+
+    if (!loginUsername || !loginPassword) {
+      setError('كل الحقول مطلوبة');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      const { error } = await signInWithPhone(formattedPhone, loginPassword);
-      
-      if (error) {
-        throw error;
-      }
-      
-      navigate('/verify-phone');
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('فشل تسجيل الدخول. تأكد من صحة رقم الهاتف وكلمة المرور.');
+      // جلب المستخدم بناء على اسم المستخدم
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', loginUsername)
+        .single();
+
+      if (error || !user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+
+      // تحقق كلمة السر (bcrypt)
+      const passwordMatch = await bcrypt.compare(loginPassword, user.password);
+      if (!passwordMatch) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+
+      signIn(user);
+      showSuccess('تم تسجيل الدخول بنجاح');
+      navigate('/'); // عدل الوجهة إذا كان هناك صفحة خاصة بعد الدخول
+    } catch (error: any) {
+      setError(error.message || 'فشل تسجيل الدخول');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // تسجيل مستخدم جديد (username, email, password, confirm password)
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!phone) {
-      setError('رقم الهاتف مطلوب');
+    if (!username) {
+      setError('اسم المستخدم مطلوب');
       return;
     }
-
-    let formattedPhone = phone;
-    if (!formattedPhone.startsWith('+')) {
-      formattedPhone = `+${formattedPhone}`;
-    }
-
-    if (!validatePhoneNumber(formattedPhone)) {
-      setError('يجب إدخال رقم الهاتف بالتنسيق الدولي (مثال: +966501234567)');
+    if (!email) {
+      setError('البريد الإلكتروني مطلوب');
       return;
     }
-
-    if (!name) {
-      setError('الاسم مطلوب');
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError('البريد الإلكتروني غير صحيح');
       return;
     }
-
     if (!password) {
       setError('كلمة المرور مطلوبة');
       return;
     }
-
     if (password.length < 6) {
       setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
       return;
     }
-
     if (password !== confirmPassword) {
-      setError('كلمات المرور غير متطابقة');
+      setError('كلمتا المرور غير متطابقتين');
       return;
     }
-
     if (!agreeToTerms) {
       setError('يجب الموافقة على الشروط والأحكام');
       return;
@@ -116,77 +103,48 @@ const Auth = () => {
     setIsSubmitting(true);
 
     try {
-      // First, create the user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        phone: formattedPhone,
-        password: password,
-        options: {
-          data: {
-            name: name,
-            phone: formattedPhone
+      // تحقق من تكرار username أو email
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .or(`username.eq.${username},email.eq.${email}`)
+        .maybeSingle();
+
+      if (existingUser) {
+        setError('اسم المستخدم أو البريد الإلكتروني مستخدم بالفعل');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // إضافة المستخدم في قاعدة البيانات
+      const { data, error } = await supabase
+        .from('users')
+        .insert([
+          {
+            username,
+            email,
+            password: hashedPassword,
+            profile_completed: false,
           }
-        }
-      });
+        ])
+        .select()
+        .single();
 
-      if (authError) {
-        throw new Error(authError.message);
-      }
+      if (error) throw error;
 
-      if (!authData.user) {
-        throw new Error('Failed to create user');
-      }
-
-      // Now send verification code using our edge function
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({ phoneNumber: formattedPhone })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send verification code');
-      }
-
-      const data = await response.json();
-
-      if (data.success) {
-        showSuccess('تم إرسال رمز التحقق بنجاح');
-        
-        // Navigate to verification page with necessary state
-        navigate('/verify-phone', { 
-          state: { 
-            phone: formattedPhone,
-            name: name,
-            isTestPhone: data.isTestPhone,
-            userId: authData.user.id
-          } 
-        });
-      } else {
-        throw new Error(data.message || 'Failed to send verification code');
-      }
-    } catch (error) {
-      console.error('Registration error:', error);
+      showSuccess('تم إنشاء الحساب بنجاح. يمكنك تسجيل الدخول الآن.');
+      setIsLogin(true);
+      setUsername('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setAgreeToTerms(false);
+    } catch (error: any) {
       setError(error.message || 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.');
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, isLogin: boolean) => {
-    const value = e.target.value;
-    
-    if (!/^[0-9+]*$/.test(value)) {
-      return;
-    }
-    
-    if (isLogin) {
-      setLoginPhone(value);
-    } else {
-      setPhone(value);
     }
   };
 
@@ -231,31 +189,26 @@ const Auth = () => {
               className="w-full max-w-md"
             >
               <h2 className="text-3xl font-bold mb-6 text-center text-gradient">تسجيل الدخول</h2>
-              
               <form onSubmit={handleLogin} className="glass-morphism p-6 rounded-2xl">
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    رقم الهاتف الدولي
+                    اسم المستخدم
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Phone className="w-5 h-5 text-secondary-400" />
+                      <User className="w-5 h-5 text-secondary-400" />
                     </div>
                     <input
-                      type="tel"
-                      dir="ltr"
+                      type="text"
                       className="input-field pr-12 text-left"
-                      placeholder="+966*********"
-                      value={loginPhone}
-                      onChange={(e) => handlePhoneChange(e, true)}
+                      placeholder="أدخل اسم المستخدم"
+                      value={loginUsername}
+                      onChange={(e) => setLoginUsername(e.target.value)}
                       required
                     />
                   </div>
-                  <p className="mt-1 text-xs text-secondary-500">
-                    أدخل رقم هاتفك الدولي مع رمز الدولة (مثال: +966 للسعودية)
-                  </p>
                 </div>
-                
+
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                     كلمة المرور
@@ -285,13 +238,7 @@ const Auth = () => {
                     </button>
                   </div>
                 </div>
-                
-                <div className="flex justify-end mb-6">
-                  <button type="button" className="text-primary-600 dark:text-primary-400 text-sm hover:text-primary-700 dark:hover:text-primary-300 transition-colors">
-                    نسيت كلمة المرور؟
-                  </button>
-                </div>
-                
+
                 <button
                   type="submit"
                   className="btn-modern w-full mb-4"
@@ -328,11 +275,10 @@ const Auth = () => {
               className="w-full max-w-md"
             >
               <h2 className="text-3xl font-bold mb-6 text-center text-gradient">إنشاء حساب جديد</h2>
-              
               <form onSubmit={handleRegister} className="glass-morphism p-6 rounded-2xl">
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    الاسم الكامل
+                    اسم المستخدم
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
@@ -340,11 +286,10 @@ const Auth = () => {
                     </div>
                     <input
                       type="text"
-                      id="name"
                       className="input-field pr-10"
-                      placeholder="أدخل اسمك الكامل"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      placeholder="اسم المستخدم"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       required
                     />
                   </div>
@@ -352,27 +297,23 @@ const Auth = () => {
                 
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    رقم الهاتف الدولي
+                    البريد الإلكتروني
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Phone className="w-5 h-5 text-secondary-400" />
+                      <Mail className="w-5 h-5 text-secondary-400" />
                     </div>
                     <input
-                      type="tel"
-                      dir="ltr"
-                      className="input-field pr-12 text-left"
-                      placeholder="+966********"
-                      value={phone}
-                      onChange={(e) => handlePhoneChange(e, false)}
+                      type="email"
+                      className="input-field pr-10"
+                      placeholder="البريد الإلكتروني"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
-                  <p className="mt-1 text-xs text-secondary-500">
-                    أدخل رقم هاتفك الدولي مع رمز الدولة (مثال: +966 للسعودية)
-                  </p>
                 </div>
-                
+
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                     كلمة المرور
@@ -383,9 +324,8 @@ const Auth = () => {
                     </div>
                     <input
                       type={showPassword ? "text" : "password"}
-                      id="password"
                       className="input-field pr-10"
-                      placeholder="أدخل كلمة المرور"
+                      placeholder="كلمة المرور"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -403,7 +343,7 @@ const Auth = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                     تأكيد كلمة المرور
@@ -414,16 +354,15 @@ const Auth = () => {
                     </div>
                     <input
                       type={showPassword ? "text" : "password"}
-                      id="confirmPassword"
                       className="input-field pr-10"
-                      placeholder="أعد إدخال كلمة المرور"
+                      placeholder="تأكيد كلمة المرور"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                     />
                   </div>
                 </div>
-                
+
                 <div className="mb-6">
                   <div className="flex items-center">
                     <input
@@ -438,7 +377,7 @@ const Auth = () => {
                     </label>
                   </div>
                 </div>
-                
+
                 <button
                   type="submit"
                   className="btn-modern w-full mb-4"
