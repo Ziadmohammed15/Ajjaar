@@ -6,9 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../services/supabaseClient';
-import bcrypt from 'bcryptjs';
-
-// لا حاجة لـ PHONE_REGEX أو التحقق برقم الجوال بعد الآن
+// احذف bcrypt لأن بيئة المتصفح وBolt لا تدعمها عادة
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -52,13 +50,13 @@ const Auth = () => {
 
       if (error || !user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
 
-      // تحقق كلمة السر (bcrypt)
-      const passwordMatch = await bcrypt.compare(loginPassword, user.password);
+      // تحقق كلمة السر (مقارنة نصية فقط، غير آمن للإنتاج)
+      const passwordMatch = loginPassword === user.password;
       if (!passwordMatch) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
 
       signIn(user);
       showSuccess('تم تسجيل الدخول بنجاح');
-      navigate('/'); // عدل الوجهة إذا كان هناك صفحة خاصة بعد الدخول
+      navigate('/user-type'); // التوجيه لصفحة اختيار نوع الحساب
     } catch (error: any) {
       setError(error.message || 'فشل تسجيل الدخول');
     } finally {
@@ -116,16 +114,14 @@ const Auth = () => {
         return;
       }
 
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // إضافة المستخدم في قاعدة البيانات
+      // إضافة المستخدم في قاعدة البيانات (بدون تشفير كلمة المرور، فقط لأغراض التجربة)
       const { data, error } = await supabase
         .from('users')
         .insert([
           {
             username,
             email,
-            password: hashedPassword,
+            password,
             profile_completed: false,
           }
         ])
@@ -134,8 +130,9 @@ const Auth = () => {
 
       if (error) throw error;
 
-      showSuccess('تم إنشاء الحساب بنجاح. يمكنك تسجيل الدخول الآن.');
-     navigate('/UserType');
+      showSuccess('تم إنشاء الحساب بنجاح. يرجى اختيار نوع الحساب.');
+      // توجيه المستخدم مباشرة لصفحة اختيار نوع الحساب
+      navigate('/user-type');
       setUsername('');
       setEmail('');
       setPassword('');
@@ -397,7 +394,7 @@ const Auth = () => {
                   لديك حساب بالفعل؟{' '}
                   <button
                     type="button"
-                    onClick={() => navigate('/choose-account-type')}
+                    onClick={() => setIsLogin(true)}
                     className="text-primary-600 dark:text-primary-400 font-medium hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
                   >
                     تسجيل الدخول
