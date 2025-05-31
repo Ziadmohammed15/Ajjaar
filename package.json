@@ -12,6 +12,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",
     "axios": "^1.6.7",
+    "bcryptjs": "^3.0.2",
     "compressorjs": "^1.2.1",
     "date-fns": "^3.3.1",
     "emoji-picker-react": "^4.7.12",
