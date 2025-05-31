@@ -41,18 +41,12 @@ function App() {
   };
   
   // Protected route component that requires authentication
-  const ProtectedRoute = ({ children, requiresPhoneVerification = true }: { children: React.ReactNode, requiresPhoneVerification?: boolean }) => {
-    if (!user) {
-      return <Navigate to="/auth" replace />;
-    }
-    
-    if (requiresPhoneVerification && !phoneVerified) {
-      return <Navigate to="/verify-phone" replace />;
-    }
-    
-    return <>{children}</>;
-  };
-
+  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  return <>{children}</>;
+};
   return (
     <Router>
       <div className="bg-secondary-100 min-h-screen">
