@@ -1,47 +1,12 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { UserCircle, Briefcase, Camera } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAuth } from '../context/AuthContext';
 
 interface UserTypeProps {
   onSelectUserType: (type: 'client' | 'provider') => void;
 }
 
 const UserType: React.FC<UserTypeProps> = ({ onSelectUserType }) => {
-  const navigate = useNavigate();
-  const { updateProfile } = useAuth();
-
-  const handleSelectClient = async () => {
-    try {
-      // Update user profile with user type
-      await updateProfile({ user_type: 'client', role: 'client' });
-      
-      // Update local state
-      onSelectUserType('client');
-      
-      // Navigate to home
-      navigate('/home');
-    } catch (error) {
-      console.error('Error setting user type:', error);
-    }
-  };
-
-  const handleSelectProvider = async () => {
-    try {
-      // Update user profile with user type
-      await updateProfile({ user_type: 'provider', role: 'provider' });
-      
-      // Update local state
-      onSelectUserType('provider');
-      
-      // Navigate to provider home
-      navigate('/provider/home');
-    } catch (error) {
-      console.error('Error setting user type:', error);
-    }
-  };
-
   return (
     <div className="app-container flex flex-col bg-grid bg-noise">
       <div className="flex-1 flex flex-col items-center justify-center p-6">
@@ -86,7 +51,7 @@ const UserType: React.FC<UserTypeProps> = ({ onSelectUserType }) => {
             whileTap={{ scale: 0.98 }}
           >
             <button 
-              onClick={handleSelectClient}
+              onClick={() => onSelectUserType('client')}
               className="card-modern flex items-center p-6 hover-lift w-full text-right"
             >
               <div className="w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center animate-bounce-subtle">
@@ -107,7 +72,7 @@ const UserType: React.FC<UserTypeProps> = ({ onSelectUserType }) => {
             whileTap={{ scale: 0.98 }}
           >
             <button 
-              onClick={handleSelectProvider}
+              onClick={() => onSelectUserType('provider')}
               className="card-modern-alt flex items-center p-6 hover-lift w-full text-right"
             >
               <div className="w-16 h-16 rounded-full bg-secondary-100 dark:bg-secondary-700 flex items-center justify-center animate-bounce-subtle">
