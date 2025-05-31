@@ -135,7 +135,7 @@ const Auth = () => {
       if (error) throw error;
 
       showSuccess('تم إنشاء الحساب بنجاح. يمكنك تسجيل الدخول الآن.');
-      setIsLogin(true);
+     navigate('/choose-account-type');
       setUsername('');
       setEmail('');
       setPassword('');
@@ -397,7 +397,7 @@ const Auth = () => {
                   لديك حساب بالفعل؟{' '}
                   <button
                     type="button"
-                    onClick={() => setIsLogin(true)}
+                    onClick={() => navigate('/choose-account-type')}
                     className="text-primary-600 dark:text-primary-400 font-medium hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
                   >
                     تسجيل الدخول
