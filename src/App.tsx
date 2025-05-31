@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Welcome from './pages/Welcome';
 import Auth from './pages/Auth';
 import UserType from './pages/UserType';
@@ -19,14 +19,14 @@ import Layout from './components/Layout';
 import ProviderLayout from './components/ProviderLayout';
 import ChatPage from './pages/ChatPage';
 import ChatsListPage from './pages/ChatsListPage';
-import PhoneVerificationPage from './pages/PhoneVerificationPage';
 import CompleteProfile from './pages/CompleteProfile';
 import TermsAndConditions from './pages/TermsAndConditions';
 import { useAuth } from './context/AuthContext';
 
-function App() {
+function AppRoutes() {
   const [userType, setUserType] = useState<'client' | 'provider' | null>(null);
-  const { user, phoneVerified } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const savedUserType = localStorage.getItem('userType') as 'client' | 'provider' | null;
@@ -38,139 +38,142 @@ function App() {
   const handleSetUserType = (type: 'client' | 'provider') => {
     setUserType(type);
     localStorage.setItem('userType', type);
+    if (type === 'client') {
+      navigate('/home');
+    } else if (type === 'provider') {
+      navigate('/provider/home');
+    }
   };
-  
-  // Protected route component that requires authentication
+
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-  return <>{children}</>;
-};
+    if (!user) {
+      return <Navigate to="/auth" replace />;
+    }
+    return <>{children}</>;
+  };
+
   return (
-    <Router>
-      <div className="bg-secondary-100 min-h-screen">
-        <Routes>
-          <Route path="/" element={<Welcome />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/complete-profile" element={
-            <ProtectedRoute requiresPhoneVerification={true}>
-              <CompleteProfile />
-            </ProtectedRoute>
-          } />
-          <Route 
-            path="/user-type" 
-            element={
-              <ProtectedRoute>
-                <UserType onSelectUserType={handleSetUserType} />
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Client routes */}
-          <Route element={<Layout userType="client" />}>
-            <Route path="/home" element={
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            } />
-            <Route path="/my-bookings" element={
-              <ProtectedRoute>
-                <MyBookings />
-              </ProtectedRoute>
-            } />
-            <Route path="/favorites" element={
-              <ProtectedRoute>
-                <FavoritesPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile userType={userType} />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            } />
-            <Route path="/category/:categoryId" element={
-              <ProtectedRoute>
-                <CategoryPage />
-              </ProtectedRoute>
-            } />
-          </Route>
-          
-          {/* Provider routes */}
-          <Route element={<ProviderLayout />}>
-            <Route path="/provider/home" element={
-              <ProtectedRoute>
-                <Home isProvider={true} />
-              </ProtectedRoute>
-            } />
-            <Route path="/provider/bookings" element={
-              <ProtectedRoute>
-                <MyBookings isProvider={true} />
-              </ProtectedRoute>
-            } />
-            <Route path="/provider/add-service" element={
-              <ProtectedRoute>
-                <AddService />
-              </ProtectedRoute>
-            } />
-            <Route path="/provider/edit-service/:id" element={
-              <ProtectedRoute>
-                <EditService />
-              </ProtectedRoute>
-            } />
-            <Route path="/provider/my-services" element={
-              <ProtectedRoute>
-                <MyServices />
-              </ProtectedRoute>
-            } />
-            <Route path="/provider/profile" element={
-              <ProtectedRoute>
-                <Profile userType={userType} />
-              </ProtectedRoute>
-            } />
-            <Route path="/provider/settings" element={
-              <ProtectedRoute>
-                <Settings />
-              </ProtectedRoute>
-            } />
-          </Route>
-          
-          {/* Shared routes */}
-          <Route path="/service/:id" element={
+    <div className="bg-secondary-100 min-h-screen">
+      <Routes>
+        <Route path="/" element={<Welcome />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/complete-profile" element={
+          <ProtectedRoute>
+            <CompleteProfile />
+          </ProtectedRoute>
+        } />
+        <Route
+          path="/user-type"
+          element={
             <ProtectedRoute>
-              <ServiceDetails />
+              <UserType onSelectUserType={handleSetUserType} />
             </ProtectedRoute>
-          } />
-          <Route path="/booking-confirmation" element={
+          }
+        />
+
+        {/* Client routes */}
+        <Route element={<Layout userType="client" />}>
+          <Route path="/home" element={
             <ProtectedRoute>
-              <BookingConfirmation />
+              <Home />
             </ProtectedRoute>
           } />
-          <Route path="/notifications" element={
+          <Route path="/my-bookings" element={
             <ProtectedRoute>
-              <Notifications />
+              <MyBookings />
             </ProtectedRoute>
           } />
-          <Route path="/chat/:id" element={
+          <Route path="/favorites" element={
             <ProtectedRoute>
-              <ChatPage />
+              <FavoritesPage />
             </ProtectedRoute>
           } />
-          <Route path="/chats" element={
+          <Route path="/profile" element={
             <ProtectedRoute>
-              <ChatsListPage />
+              <Profile userType={userType} />
             </ProtectedRoute>
           } />
-          <Route path="/terms" element={<TermsAndConditions />} />
-        </Routes>
-      </div>
-    </Router>
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } />
+          <Route path="/category/:categoryId" element={
+            <ProtectedRoute>
+              <CategoryPage />
+            </ProtectedRoute>
+          } />
+        </Route>
+
+        {/* Provider routes */}
+        <Route element={<ProviderLayout />}>
+          <Route path="/provider/home" element={
+            <ProtectedRoute>
+              <Home isProvider={true} />
+            </ProtectedRoute>
+          } />
+          <Route path="/provider/bookings" element={
+            <ProtectedRoute>
+              <MyBookings isProvider={true} />
+            </ProtectedRoute>
+          } />
+          <Route path="/provider/add-service" element={
+            <ProtectedRoute>
+              <AddService />
+            </ProtectedRoute>
+          } />
+          <Route path="/provider/edit-service/:id" element={
+            <ProtectedRoute>
+              <EditService />
+            </ProtectedRoute>
+          } />
+          <Route path="/provider/my-services" element={
+            <ProtectedRoute>
+              <MyServices />
+            </ProtectedRoute>
+          } />
+          <Route path="/provider/profile" element={
+            <ProtectedRoute>
+              <Profile userType={userType} />
+            </ProtectedRoute>
+          } />
+          <Route path="/provider/settings" element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } />
+        </Route>
+
+        {/* Shared routes */}
+        <Route path="/service/:id" element={
+          <ProtectedRoute>
+            <ServiceDetails />
+          </ProtectedRoute>
+        } />
+        <Route path="/booking-confirmation" element={
+          <ProtectedRoute>
+            <BookingConfirmation />
+          </ProtectedRoute>
+        } />
+        <Route path="/notifications" element={
+          <ProtectedRoute>
+            <Notifications />
+          </ProtectedRoute>
+        } />
+        <Route path="/chat/:id" element={
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/chats" element={
+          <ProtectedRoute>
+            <ChatsListPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/terms" element={<TermsAndConditions />} />
+      </Routes>
+    </div>
   );
 }
 
-export default App;
+export default AppRoutes;
