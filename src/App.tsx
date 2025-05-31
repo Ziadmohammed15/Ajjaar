@@ -53,11 +53,6 @@ function App() {
         <Routes>
           <Route path="/" element={<Welcome />} />
           <Route path="/auth" element={<Auth />} />
-          <Route path="/verify-phone" element={
-            <ProtectedRoute requiresPhoneVerification={false}>
-              <PhoneVerificationPage />
-            </ProtectedRoute>
-          } />
           <Route path="/complete-profile" element={
             <ProtectedRoute requiresPhoneVerification={true}>
               <CompleteProfile />
