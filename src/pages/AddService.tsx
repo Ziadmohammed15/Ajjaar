@@ -44,6 +44,10 @@ const saudiCities = [
 ];
 
 const AddService = () => {
+  return (
+    <RequireCompleteProfile>
+      <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-xl shadow border">
+        <h2 className="text-xl font-bold mb-4 text-center">إضافة خدمة جديدة</h2>  {
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
   const { user } = useAuth();
@@ -540,8 +544,8 @@ const AddService = () => {
             initialValues={deliveryOptions}
           />
         </motion.div>
-      </div>
-    </>
+         </div>
+    </RequireCompleteProfile>
   );
 };
 
