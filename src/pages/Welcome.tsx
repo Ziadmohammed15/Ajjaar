@@ -8,8 +8,8 @@ const Welcome = () => {
     <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-secondary-900">
       <h1 className="text-4xl font-bold mb-8 text-gradient">مرحبًا بك في أجّار!</h1>
       <p className="mb-8 text-lg text-secondary-700 dark:text-secondary-200 text-center">
-        يمكنك تصفح جميع الخدمات والطلبات بدون الحاجة لتسجيل الدخول.<br />
-        إذا رغبت بإضافة خدمة أو طلب، أكمل ملفك الشخصي من صفحتك الشخصية فقط.
+        يمكنك تصفح جميع الخدمات بدون الحاجة لتسجيل الدخول.<br />
+        إذا رغبت بإضافة خدمة أو تعديل بياناتك يمكنك ذلك من صفحتك الشخصية.
       </p>
       <button
         onClick={() => navigate('/home')}
