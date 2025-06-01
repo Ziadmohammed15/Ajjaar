@@ -22,10 +22,11 @@ import ChatsListPage from './pages/ChatsListPage';
 import CompleteProfile from './pages/CompleteProfile';
 import TermsAndConditions from './pages/TermsAndConditions';
 import { useAuth } from './context/AuthContext';
+import RequireCompleteProfile from './components/RequireCompleteProfile';
 
 function App() {
   const [userType, setUserType] = useState<'client' | 'provider' | null>(null);
-  const { user } = useAuth();
+  const { user, isProfileComplete, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -45,9 +46,23 @@ function App() {
     }
   };
 
+  // حماية فقط الصفحات التي تتطلب تسجيل دخول حقيقي (مثل: ملفي، الإعدادات)
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+    if (loading) return null;
     if (!user) {
       return <Navigate to="/auth" replace />;
+    }
+    return <>{children}</>;
+  };
+
+  // حماية الصفحات التي تتطلب اكتمال الملف الشخصي (مثل: نشر خدمة، نشر طلب)
+  const RequireProfileCompletion = ({ children }: { children: React.ReactNode }) => {
+    if (loading) return null;
+    if (!user) {
+      return <Navigate to="/auth" replace />;
+    }
+    if (!isProfileComplete) {
+      return <Navigate to="/complete-profile" replace />;
     }
     return <>{children}</>;
   };
@@ -74,9 +89,8 @@ function App() {
         {/* Client routes */}
         <Route element={<Layout userType="client" />}>
           <Route path="/home" element={
-            <ProtectedRoute>
-              <Home />
-            </ProtectedRoute>
+            // الصفحة الرئيسية متاحة للجميع (زائر أو مسجل)
+            <Home />
           } />
           <Route path="/my-bookings" element={
             <ProtectedRoute>
@@ -99,18 +113,15 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/category/:categoryId" element={
-            <ProtectedRoute>
-              <CategoryPage />
-            </ProtectedRoute>
+            <Home />
           } />
         </Route>
 
         {/* Provider routes */}
         <Route element={<ProviderLayout />}>
           <Route path="/provider/home" element={
-            <ProtectedRoute>
-              <Home isProvider={true} />
-            </ProtectedRoute>
+            // الصفحة الرئيسية متاحة للجميع (زائر أو مسجل)
+            <Home isProvider={true} />
           } />
           <Route path="/provider/bookings" element={
             <ProtectedRoute>
@@ -118,14 +129,15 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/provider/add-service" element={
-            <ProtectedRoute>
+            // إضافة خدمة تتطلب اكتمال الملف الشخصي
+            <RequireProfileCompletion>
               <AddService />
-            </ProtectedRoute>
+            </RequireProfileCompletion>
           } />
           <Route path="/provider/edit-service/:id" element={
-            <ProtectedRoute>
+            <RequireProfileCompletion>
               <EditService />
-            </ProtectedRoute>
+            </RequireProfileCompletion>
           } />
           <Route path="/provider/my-services" element={
             <ProtectedRoute>
@@ -146,9 +158,7 @@ function App() {
 
         {/* Shared routes */}
         <Route path="/service/:id" element={
-          <ProtectedRoute>
-            <ServiceDetails />
-          </ProtectedRoute>
+          <ServiceDetails />
         } />
         <Route path="/booking-confirmation" element={
           <ProtectedRoute>
