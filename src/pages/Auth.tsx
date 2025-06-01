@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, Eye, EyeOff, User } from 'lucide-react';
+import { Lock, Eye, EyeOff, User, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
@@ -20,10 +20,12 @@ const Auth = () => {
 
   // Register state
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,18 +39,20 @@ const Auth = () => {
     setIsSubmitting(true);
 
     try {
+      // Use maybeSingle() instead of single() to handle no results gracefully
       const { data: user, error: queryError } = await supabase
         .from('users')
         .select('*')
         .eq('username', loginUsername)
         .maybeSingle();
 
+      // Check if no user was found or if there was a query error
       if (queryError) throw new Error('حدث خطأ أثناء تسجيل الدخول');
       if (!user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
 
-      if (loginPassword !== user.password) {
-        throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
-      }
+      // تحقق كلمة السر (مقارنة نصية فقط، غير آمن للإنتاج)
+      const passwordMatch = loginPassword === user.password;
+      if (!passwordMatch) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
 
       signIn(user);
       showSuccess('تم تسجيل الدخول بنجاح');
@@ -68,6 +72,14 @@ const Auth = () => {
       setError('اسم المستخدم مطلوب');
       return;
     }
+    if (!email) {
+      setError('البريد الإلكتروني مطلوب');
+      return;
+    }
+    if (!/\S+@\S+\.\S+/.test(email)) {
+      setError('البريد الإلكتروني غير صحيح');
+      return;
+    }
     if (!password) {
       setError('كلمة المرور مطلوبة');
       return;
@@ -80,18 +92,23 @@ const Auth = () => {
       setError('كلمتا المرور غير متطابقتين');
       return;
     }
+    if (!agreeToTerms) {
+      setError('يجب الموافقة على الشروط والأحكام');
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
+      // تحقق من تكرار username أو email
       const { data: existingUser } = await supabase
         .from('users')
         .select('*')
-        .eq('username', username)
+        .or(`username.eq.${username},email.eq.${email}`)
         .maybeSingle();
 
       if (existingUser) {
-        setError('اسم المستخدم مستخدم بالفعل');
+        setError('اسم المستخدم أو البريد الإلكتروني مستخدم بالفعل');
         setIsSubmitting(false);
         return;
       }
@@ -101,8 +118,9 @@ const Auth = () => {
         .insert([
           {
             username,
+            email,
             password,
-            profile_completed: false
+            profile_completed: false,
           }
         ])
         .select()
@@ -110,13 +128,15 @@ const Auth = () => {
 
       if (error) throw error;
 
-      showSuccess('تم إنشاء الحساب بنجاح');
+      showSuccess('تم إنشاء الحساب بنجاح. يرجى اختيار نوع الحساب.');
       navigate('/user-type');
       setUsername('');
+      setEmail('');
       setPassword('');
       setConfirmPassword('');
+      setAgreeToTerms(false);
     } catch (error: any) {
-      setError(error.message || 'فشل في إنشاء الحساب');
+      setError(error.message || 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.');
     } finally {
       setIsSubmitting(false);
     }
@@ -174,7 +194,7 @@ const Auth = () => {
                     </div>
                     <input
                       type="text"
-                      className="input-field pr-12"
+                      className="input-field pr-12 text-left"
                       placeholder="أدخل اسم المستخدم"
                       value={loginUsername}
                       onChange={(e) => setLoginUsername(e.target.value)}
@@ -260,10 +280,29 @@ const Auth = () => {
                     </div>
                     <input
                       type="text"
-                      className="input-field pr-12"
-                      placeholder="أدخل اسم المستخدم"
+                      className="input-field pr-10"
+                      placeholder="اسم المستخدم"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+                    البريد الإلكتروني
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <Mail className="w-5 h-5 text-secondary-400" />
+                    </div>
+                    <input
+                      type="email"
+                      className="input-field pr-10"
+                      placeholder="البريد الإلكتروني"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -279,8 +318,8 @@ const Auth = () => {
                     </div>
                     <input
                       type={showPassword ? "text" : "password"}
-                      className="input-field pr-12"
-                      placeholder="أدخل كلمة المرور"
+                      className="input-field pr-10"
+                      placeholder="كلمة المرور"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -309,12 +348,27 @@ const Auth = () => {
                     </div>
                     <input
                       type={showPassword ? "text" : "password"}
-                      className="input-field pr-12"
-                      placeholder="أعد إدخال كلمة المرور"
+                      className="input-field pr-10"
+                      placeholder="تأكيد كلمة المرور"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                     />
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="terms"
+                      checked={agreeToTerms}
+                      onChange={(e) => setAgreeToTerms(e.target.checked)}
+                      className="w-4 h-4 text-primary-600 bg-secondary-100 border-secondary-300 rounded focus:ring-primary-500"
+                    />
+                    <label htmlFor="terms" className="mr-2 block text-sm text-secondary-700 dark:text-secondary-300">
+                      أوافق على <Link to="/terms" className="text-primary-600 dark:text-primary-400 hover:underline">الشروط والأحكام</Link>
+                    </label>
                   </div>
                 </div>
 
