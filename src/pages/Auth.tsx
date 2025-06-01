@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../services/supabaseClient';
-// احذف bcrypt لأن بيئة المتصفح وBolt لا تدعمها عادة
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -28,7 +27,6 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
-  // تسجيل الدخول باسم المستخدم وكلمة المرور فقط
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -41,14 +39,16 @@ const Auth = () => {
     setIsSubmitting(true);
 
     try {
-      // جلب المستخدم بناء على اسم المستخدم
-      const { data: user, error } = await supabase
+      // Use maybeSingle() instead of single() to handle no results gracefully
+      const { data: user, error: queryError } = await supabase
         .from('users')
         .select('*')
         .eq('username', loginUsername)
-        .single();
+        .maybeSingle();
 
-      if (error || !user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+      // Check if no user was found or if there was a query error
+      if (queryError) throw new Error('حدث خطأ أثناء تسجيل الدخول');
+      if (!user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
 
       // تحقق كلمة السر (مقارنة نصية فقط، غير آمن للإنتاج)
       const passwordMatch = loginPassword === user.password;
@@ -56,7 +56,7 @@ const Auth = () => {
 
       signIn(user);
       showSuccess('تم تسجيل الدخول بنجاح');
-      navigate('/user-type'); // التوجيه لصفحة اختيار نوع الحساب
+      navigate('/user-type');
     } catch (error: any) {
       setError(error.message || 'فشل تسجيل الدخول');
     } finally {
@@ -64,7 +64,6 @@ const Auth = () => {
     }
   };
 
-  // تسجيل مستخدم جديد (username, email, password, confirm password)
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -114,7 +113,6 @@ const Auth = () => {
         return;
       }
 
-      // إضافة المستخدم في قاعدة البيانات (بدون تشفير كلمة المرور، فقط لأغراض التجربة)
       const { data, error } = await supabase
         .from('users')
         .insert([
@@ -131,7 +129,6 @@ const Auth = () => {
       if (error) throw error;
 
       showSuccess('تم إنشاء الحساب بنجاح. يرجى اختيار نوع الحساب.');
-      // توجيه المستخدم مباشرة لصفحة اختيار نوع الحساب
       navigate('/user-type');
       setUsername('');
       setEmail('');
