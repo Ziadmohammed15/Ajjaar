@@ -4,9 +4,9 @@ import { useNavigate } from "react-router-dom";
 
 const CompleteProfile = () => {
   const navigate = useNavigate();
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState(1);
 
-  // Step 1: phone
+  // 1. الهاتف والتحقق
   const [phone, setPhone] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -14,25 +14,24 @@ const CompleteProfile = () => {
   const [otpError, setOtpError] = useState("");
   const [otpLoading, setOtpLoading] = useState(false);
 
-  // Step 2: password
+  // 2. كلمة السر
   const [password, setPassword] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [submitLoading, setSubmitLoading] = useState(false);
 
-  // Step 3: Optional info
+  // 3. معلومات اختيارية
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [submitLoading, setSubmitLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // 1. إرسال رمز التحقق للهاتف
+  // إرسال رمز التحقق
   const sendOtp = async () => {
     setOtpLoading(true);
     setPhoneError("");
-    // يجب ربط هذه الدالة مع باكند/سيرفس OTP حقيقي مثل Twilio أو Supabase Auth
     try {
       // مثال: await supabase.auth.signInWithOtp({ phone });
       setOtpSent(true);
@@ -42,7 +41,7 @@ const CompleteProfile = () => {
     setOtpLoading(false);
   };
 
-  // 2. تحقق من الرمز
+  // تحقق من الرمز
   const verifyOtp = async () => {
     setOtpError("");
     setOtpLoading(true);
@@ -55,7 +54,7 @@ const CompleteProfile = () => {
     setOtpLoading(false);
   };
 
-  // 3. تعيين كلمة السر
+  // حفظ كلمة السر
   const handlePassword = async () => {
     setPasswordError("");
     if (password.length < 6) {
@@ -66,19 +65,18 @@ const CompleteProfile = () => {
       setPasswordError("كلمتا السر غير متطابقتين.");
       return;
     }
-    // من هنا يمكن حفظ كلمة السر في البروفايل أو Supabase Auth
     setStep(3);
   };
 
-  // 4. حفظ باقي الحقول الاختيارية
+  // حفظ باقي البيانات
   const handleProfile = async () => {
     setSubmitLoading(true);
-    // تحديث بيانات المستخدم في جدول profiles
     try {
+      // تحديث بيانات الملف الشخصي في قاعدة البيانات
       // مثال: await supabase.from("profiles").update({ name, email, bio, location, avatar_url: avatarUrl, is_profile_complete: true }).eq("phone", phone);
       setSuccess(true);
       setTimeout(() => {
-        navigate("/"); // إلى الرئيسية بعد الإكمال
+        navigate("/");
       }, 1500);
     } catch (e) {
       alert("فشل حفظ الملف الشخصي.");
@@ -89,7 +87,6 @@ const CompleteProfile = () => {
   return (
     <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-xl shadow border">
       <h2 className="text-xl font-bold mb-4 text-center">إكمال الملف الشخصي</h2>
-
       {step === 1 && (
         <>
           <label className="block mb-2 font-medium">رقم الجوال</label>
