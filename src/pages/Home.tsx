@@ -26,7 +26,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
   const [showPasswordReminder, setShowPasswordReminder] = useState(false);
   const { theme } = useTheme();
   const navigate = useNavigate();
-  const { user, isProfileComplete } = useAuth();
+  const { user, profile, loading } = useAuth();
 
   const [filters, setFilters] = useState({
     priceRange: [0, 500] as [number, number],
@@ -75,14 +75,22 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
   };
 
   const handleAddService = () => {
-    // تعديل: السماح بالتصفح الحر للجميع.
+    // السماح بالتصفح الحر للجميع.
     // عند الضغط على إضافة خدمة، إذا لم يكن المستخدم مكتمل الملف، يوجه إلى إكمال الملف.
-    if (!user || !isProfileComplete) {
+    if (!user || !profile || !profile.is_profile_complete) {
       navigate('/complete-profile');
     } else {
       navigate('/provider/add-service');
     }
   };
+
+  // زر إضافة خدمة متاح فقط إذا كان المستخدم مقدم خدمة ومسجل الدخول وملفه مكتمل
+  const showAddService =
+    isProvider &&
+    !loading &&
+    user &&
+    profile &&
+    profile.user_type === 'provider';
 
   const filteredServices = services.filter(service => {
     const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -110,7 +118,6 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
       case 'rating_desc':
         return b.rating - a.rating;
       case 'newest':
-        // For demo purposes, we'll just reverse the array to simulate "newest"
         return -1;
       default: // recommended
         return 0;
@@ -236,7 +243,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
         {/* Category Grid */}
         <CategoryGrid />
 
-        {isProvider && (
+        {showAddService && (
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
