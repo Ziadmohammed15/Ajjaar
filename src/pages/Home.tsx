@@ -5,7 +5,7 @@ import CategorySelector from '../components/CategorySelector';
 import ServiceCard from '../components/ServiceCard';
 import { Filter, PlusCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import PromotionBanner from '../components/PromotionBanner';
 import CategoryGrid from '../components/CategoryGrid';
@@ -26,8 +26,8 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
   const [showPasswordReminder, setShowPasswordReminder] = useState(false);
   const { theme } = useTheme();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  
+  const { user, isProfileComplete } = useAuth();
+
   const [filters, setFilters] = useState({
     priceRange: [0, 500] as [number, number],
     rating: 0,
@@ -40,7 +40,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 1000);
-    
+
     // Check if user should be reminded to set password
     if (user) {
       const hasBeenReminded = localStorage.getItem('password_reminder_shown');
@@ -52,7 +52,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
         return () => clearTimeout(timer);
       }
     }
-    
+
     return () => clearTimeout(timer);
   }, [user]);
 
@@ -60,11 +60,11 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
     { id: 'all', name: 'الكل' },
     ...categories.map(cat => ({ id: cat.id, name: cat.name }))
   ];
-  
+
   const handleApplyFilters = (newFilters: typeof filters) => {
     setFilters(newFilters);
   };
-  
+
   const handleResetFilters = () => {
     setFilters({
       priceRange: [0, 500],
@@ -75,25 +75,31 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
   };
 
   const handleAddService = () => {
-    navigate('/provider/add-service');
+    // تعديل: السماح بالتصفح الحر للجميع.
+    // عند الضغط على إضافة خدمة، إذا لم يكن المستخدم مكتمل الملف، يوجه إلى إكمال الملف.
+    if (!user || !isProfileComplete) {
+      navigate('/complete-profile');
+    } else {
+      navigate('/provider/add-service');
+    }
   };
 
   const filteredServices = services.filter(service => {
-    const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          service.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      service.description.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesCategory = selectedCategory === 'all' || service.category === selectedCategory;
-    
+
     const matchesFilters = (
-      service.price >= filters.priceRange[0] && 
+      service.price >= filters.priceRange[0] &&
       service.price <= filters.priceRange[1] &&
       (filters.rating === 0 || service.rating >= filters.rating) &&
       (filters.categories.length === 0 || filters.categories.includes(service.category))
     );
-    
+
     return matchesSearch && matchesCategory && matchesFilters;
   });
-  
+
   // Sort services based on selected sort option
   const sortedServices = [...filteredServices].sort((a, b) => {
     switch (filters.sortBy) {
@@ -124,14 +130,14 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
 
   return (
     <div className="content-scroll">
-      <motion.div 
+      <motion.div
         initial={{ y: -20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         className="bg-gradient-primary text-white pt-6 pb-8 px-4 rounded-b-3xl transition-colors duration-300 shadow-lg relative overflow-hidden"
       >
         {/* Background pattern */}
         <div className="absolute inset-0 bg-dots opacity-10"></div>
-        
+
         <div className="flex justify-between items-center mb-6 relative z-10">
           <motion.div
             initial={{ x: -20, opacity: 0 }}
@@ -140,8 +146,8 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
           >
             <h1 className="text-black dark:text-white">مرحباً بك 👋</h1>
             <p className="text-primary-100">
-              {isProvider 
-                ? 'أدر خدماتك واستقبل الحجوزات' 
+              {isProvider
+                ? 'أدر خدماتك واستقبل الحجوزات'
                 : 'اكتشف أفضل الخدمات المتاحة'}
             </p>
           </motion.div>
@@ -157,14 +163,14 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
             </motion.div>
           </div>
         </div>
-        
+
         <div className="relative z-10">
-          <SearchBar 
+          <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}
             placeholder={isProvider ? "ابحث في خدماتك..." : "ابحث عن خدمة..."}
           />
-          <motion.button 
+          <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowFilterModal(true)}
@@ -174,21 +180,21 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
           </motion.button>
         </div>
       </motion.div>
-      
+
       <div className="px-4 -mt-4">
-        <motion.div 
+        <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
           className="glass-morphism rounded-xl p-2 mb-6"
         >
-          <CategorySelector 
+          <CategorySelector
             categories={categoryOptions}
             selectedCategory={selectedCategory}
             onSelectCategory={setSelectedCategory}
           />
         </motion.div>
-        
+
         {/* Password Reminder Notification */}
         <AnimatePresence>
           {showPasswordReminder && (
@@ -205,7 +211,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
                     يرجى تعيين كلمة مرور لحسابك حتى تتمكن من تسجيل الدخول مرة أخرى بسهولة في المستقبل.
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={dismissPasswordReminder}
                   className="text-primary-500 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 ml-2"
                 >
@@ -223,20 +229,20 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         {/* Promotional Banners */}
         <PromotionBanner />
-        
+
         {/* Category Grid */}
         <CategoryGrid />
-        
+
         {isProvider && (
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
           >
-            <button 
+            <button
               onClick={handleAddService}
               className="flex items-center justify-center btn-modern mb-6 relative overflow-hidden group w-full"
             >
@@ -246,8 +252,8 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
             </button>
           </motion.div>
         )}
-        
-        <motion.h2 
+
+        <motion.h2
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
@@ -255,12 +261,12 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
         >
           {isProvider ? 'خدماتك المعروضة' : 'خدمات مميزة'}
         </motion.h2>
-        
+
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((_, index) => (
-              <motion.div 
-                key={index} 
+              <motion.div
+                key={index}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="card-modern h-72 shimmer"
@@ -288,7 +294,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
                 <p className="text-secondary-600 dark:text-secondary-400">
                   لم يتم العثور على خدمات تطابق معايير البحث
                 </p>
-                <button 
+                <button
                   onClick={() => {
                     setSearchTerm('');
                     setSelectedCategory('all');
@@ -303,9 +309,9 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
           </>
         )}
       </div>
-      
+
       {/* Filters Modal */}
-      <ServiceFilters 
+      <ServiceFilters
         isOpen={showFilterModal}
         onClose={() => setShowFilterModal(false)}
         filters={filters}
