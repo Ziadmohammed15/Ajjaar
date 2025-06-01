@@ -25,7 +25,7 @@ import { useAuth } from './context/AuthContext';
 
 function App() {
   const [userType, setUserType] = useState<'client' | 'provider' | null>(null);
-  const { user, isProfileComplete, loading } = useAuth();
+  const { user, profile, isProfileComplete, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -100,7 +100,7 @@ function App() {
           } />
           <Route path="/profile" element={
             <ProtectedRoute>
-              <Profile userType={userType} />
+              <Profile />
             </ProtectedRoute>
           } />
           <Route path="/settings" element={
@@ -138,7 +138,7 @@ function App() {
           } />
           <Route path="/provider/profile" element={
             <ProtectedRoute>
-              <Profile userType={userType} />
+              <Profile />
             </ProtectedRoute>
           } />
           <Route path="/provider/settings" element={
