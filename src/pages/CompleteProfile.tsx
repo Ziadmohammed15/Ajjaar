@@ -8,10 +8,10 @@ import { supabase } from '../services/supabaseClient';
 import { useToast } from '../context/ToastContext';
 
 const CompleteProfile = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, setProfile } = useAuth();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
-  
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [location, setLocation] = useState('');
@@ -21,23 +21,24 @@ const CompleteProfile = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) {
-        navigate('/auth');
+        // لا تحول المستخدم إلى صفحة تسجيل الدخول، فقط أظهر نموذج فارغ للزائر.
+        setIsLoading(false);
         return;
       }
-      
+
       try {
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
-          
+
         if (error) throw error;
-        
+
         if (data) {
           setName(data.name || '');
           setEmail(data.email || '');
@@ -52,42 +53,42 @@ const CompleteProfile = () => {
         setIsLoading(false);
       }
     };
-    
+
     loadProfile();
-  }, [user, navigate, showError]);
-  
+  }, [user, showError]);
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     // Preview the image
     const reader = new FileReader();
     reader.onload = () => {
       setAvatarUrl(reader.result as string);
     };
     reader.readAsDataURL(file);
-    
+
     setAvatarFile(file);
   };
-  
+
   const uploadAvatar = async (): Promise<string | null> => {
     if (!avatarFile || !user) return avatarUrl;
-    
+
     setIsUploading(true);
     try {
       const fileExt = avatarFile.name.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-      
+
       const { error } = await supabase.storage
         .from('avatars')
         .upload(filePath, avatarFile);
-        
+
       if (error) throw error;
-      
+
       const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
-        
+
       return data.publicUrl;
     } catch (error) {
       console.error('Error uploading avatar:', error);
@@ -97,44 +98,68 @@ const CompleteProfile = () => {
       setIsUploading(false);
     }
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-    
+
     if (!name) {
       showError('الاسم مطلوب');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      // Upload avatar if changed
       let finalAvatarUrl = avatarUrl;
-      if (avatarFile) {
+      if (avatarFile && user) {
         finalAvatarUrl = await uploadAvatar();
       }
-      
-      // Update profile
-      const { error } = await updateProfile({
-        name,
-        email: email || null,
-        location: location || null,
-        user_type: userType,
-        avatar_url: finalAvatarUrl,
-        updated_at: new Date().toISOString()
-      });
-      
+
+      // تحديث أو إنشاء البروفايل
+      let error;
+      if (user) {
+        // إذا كان هناك مستخدم، حدث البروفايل العائد له
+        ({ error } = await supabase
+          .from('profiles')
+          .update({
+            name,
+            email: email || null,
+            location: location || null,
+            user_type: userType,
+            avatar_url: finalAvatarUrl,
+            is_profile_complete: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id));
+        setProfile((old: any) => ({
+          ...old,
+          name,
+          email,
+          location,
+          user_type: userType,
+          avatar_url: finalAvatarUrl,
+          is_profile_complete: true,
+        }));
+      } else {
+        // زائر، أنشئ صف جديد في profiles (يمكن تجاهله أو تخصيص سلوك مختلف للزوار)
+        ({ error } = await supabase
+          .from('profiles')
+          .insert([{
+            name,
+            email: email || null,
+            location: location || null,
+            user_type: userType,
+            avatar_url: finalAvatarUrl,
+            is_profile_complete: true,
+            created_at: new Date().toISOString(),
+          }]));
+      }
+
       if (error) throw error;
-      
+
       showSuccess('تم تحديث الملف الشخصي بنجاح');
-      
-      // Navigate based on user type
+
+      // توجيه حسب نوع الحساب/الحالة
       if (userType === 'provider') {
         navigate('/provider/home');
       } else {
@@ -147,7 +172,7 @@ const CompleteProfile = () => {
       setIsSubmitting(false);
     }
   };
-  
+
   if (isLoading) {
     return (
       <>
@@ -158,11 +183,11 @@ const CompleteProfile = () => {
       </>
     );
   }
-  
+
   return (
     <>
       <Header title="إكمال الملف الشخصي" showBack={true} />
-      
+
       <div className="page-container">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -175,9 +200,9 @@ const CompleteProfile = () => {
               <div className="relative mb-4">
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-secondary-100 dark:bg-secondary-800 border-4 border-white dark:border-secondary-700">
                   {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt="الصورة الشخصية" 
+                    <img
+                      src={avatarUrl}
+                      alt="الصورة الشخصية"
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -204,7 +229,7 @@ const CompleteProfile = () => {
                 الصورة الشخصية (اختياري)
               </p>
             </div>
-            
+
             {/* Name Field - Required */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
@@ -224,7 +249,7 @@ const CompleteProfile = () => {
                 />
               </div>
             </div>
-            
+
             {/* User Type Selection - Required */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
@@ -257,7 +282,7 @@ const CompleteProfile = () => {
                 </button>
               </div>
             </div>
-            
+
             {/* Email Field - Optional */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
@@ -276,7 +301,7 @@ const CompleteProfile = () => {
                 />
               </div>
             </div>
-            
+
             {/* Location Field - Optional */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
@@ -295,7 +320,7 @@ const CompleteProfile = () => {
                 />
               </div>
             </div>
-            
+
             <button
               type="submit"
               disabled={isSubmitting || isUploading || !name}
