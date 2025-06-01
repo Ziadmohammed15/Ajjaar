@@ -8,7 +8,7 @@ import { supabase } from '../services/supabaseClient';
 import { useToast } from '../context/ToastContext';
 
 const CompleteProfile = () => {
-  const { user, setProfile } = useAuth();
+  const { user, profile, setProfile } = useAuth();
   const navigate = useNavigate();
   const { showSuccess, showError } = useToast();
 
@@ -23,75 +23,40 @@ const CompleteProfile = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!user) {
-        // لا تحول المستخدم إلى صفحة تسجيل الدخول، فقط أظهر نموذج فارغ للزائر.
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
-
-        if (data) {
-          setName(data.name || '');
-          setEmail(data.email || '');
-          setLocation(data.location || '');
-          setUserType(data.user_type as 'client' | 'provider' || 'client');
-          setAvatarUrl(data.avatar_url);
-        }
-      } catch (error) {
-        console.error('Error loading profile:', error);
-        showError('حدث خطأ أثناء تحميل بيانات الملف الشخصي');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadProfile();
-  }, [user, showError]);
+    if (profile) {
+      setName(profile.name || '');
+      setEmail(profile.email || '');
+      setLocation(profile.location || '');
+      setUserType(profile.user_type || 'client');
+      setAvatarUrl(profile.avatar_url || null);
+    }
+    setIsLoading(false);
+  }, [profile]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Preview the image
     const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarUrl(reader.result as string);
-    };
+    reader.onload = () => setAvatarUrl(reader.result as string);
     reader.readAsDataURL(file);
-
     setAvatarFile(file);
   };
 
   const uploadAvatar = async (): Promise<string | null> => {
     if (!avatarFile || !user) return avatarUrl;
-
     setIsUploading(true);
     try {
       const fileExt = avatarFile.name.split('.').pop();
       const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-
       const { error } = await supabase.storage
         .from('avatars')
         .upload(filePath, avatarFile);
-
       if (error) throw error;
-
       const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
-
       return data.publicUrl;
     } catch (error) {
-      console.error('Error uploading avatar:', error);
       showError('فشل في رفع الصورة الشخصية');
       return null;
     } finally {
@@ -101,72 +66,39 @@ const CompleteProfile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!name) {
       showError('الاسم مطلوب');
       return;
     }
-
     setIsSubmitting(true);
-
     try {
       let finalAvatarUrl = avatarUrl;
       if (avatarFile && user) {
         finalAvatarUrl = await uploadAvatar();
       }
-
-      // تحديث أو إنشاء البروفايل
-      let error;
-      if (user) {
-        // إذا كان هناك مستخدم، حدث البروفايل العائد له
-        ({ error } = await supabase
-          .from('profiles')
-          .update({
-            name,
-            email: email || null,
-            location: location || null,
-            user_type: userType,
-            avatar_url: finalAvatarUrl,
-            is_profile_complete: true,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id));
-        setProfile((old: any) => ({
-          ...old,
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({
           name,
-          email,
-          location,
+          email: email || null,
+          location: location || null,
           user_type: userType,
           avatar_url: finalAvatarUrl,
           is_profile_complete: true,
-        }));
-      } else {
-        // زائر، أنشئ صف جديد في profiles (يمكن تجاهله أو تخصيص سلوك مختلف للزوار)
-        ({ error } = await supabase
-          .from('profiles')
-          .insert([{
-            name,
-            email: email || null,
-            location: location || null,
-            user_type: userType,
-            avatar_url: finalAvatarUrl,
-            is_profile_complete: true,
-            created_at: new Date().toISOString(),
-          }]));
-      }
-
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user?.id)
+        .select()
+        .single();
       if (error) throw error;
-
+      setProfile(data);
       showSuccess('تم تحديث الملف الشخصي بنجاح');
-
-      // توجيه حسب نوع الحساب/الحالة
       if (userType === 'provider') {
         navigate('/provider/home');
       } else {
         navigate('/home');
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
       showError('فشل في تحديث الملف الشخصي');
     } finally {
       setIsSubmitting(false);
@@ -187,7 +119,6 @@ const CompleteProfile = () => {
   return (
     <>
       <Header title="إكمال الملف الشخصي" showBack={true} />
-
       <div className="page-container">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -195,7 +126,6 @@ const CompleteProfile = () => {
           className="glass-morphism p-6 rounded-2xl"
         >
           <form onSubmit={handleSubmit}>
-            {/* Avatar Upload */}
             <div className="flex flex-col items-center mb-6">
               <div className="relative mb-4">
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-secondary-100 dark:bg-secondary-800 border-4 border-white dark:border-secondary-700">
@@ -229,8 +159,6 @@ const CompleteProfile = () => {
                 الصورة الشخصية (اختياري)
               </p>
             </div>
-
-            {/* Name Field - Required */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                 الاسم <span className="text-red-500">*</span>
@@ -249,8 +177,6 @@ const CompleteProfile = () => {
                 />
               </div>
             </div>
-
-            {/* User Type Selection - Required */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                 نوع الحساب <span className="text-red-500">*</span>
@@ -282,8 +208,6 @@ const CompleteProfile = () => {
                 </button>
               </div>
             </div>
-
-            {/* Email Field - Optional */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                 البريد الإلكتروني (اختياري)
@@ -301,8 +225,6 @@ const CompleteProfile = () => {
                 />
               </div>
             </div>
-
-            {/* Location Field - Optional */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                 الموقع (اختياري)
@@ -320,7 +242,6 @@ const CompleteProfile = () => {
                 />
               </div>
             </div>
-
             <button
               type="submit"
               disabled={isSubmitting || isUploading || !name}
