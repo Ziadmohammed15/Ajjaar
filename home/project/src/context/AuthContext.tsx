@@ -9,40 +9,35 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getUser = async () => {
+    const getUserProfile = async () => {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) {
-        const { data: profileData } = await supabase
+        const { data } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", user.id)
           .single();
-        setProfile(profileData);
+        setProfile(data);
       } else {
         setProfile(null);
       }
       setLoading(false);
     };
-
-    getUser();
-    const { data: listener } = supabase.auth.onAuthStateChange(getUser);
-    return () => listener.subscription.unsubscribe();
+    getUserProfile();
+    const { data: authListener } = supabase.auth.onAuthStateChange(getUserProfile);
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
-
-  const isGuest = !user;
-  const isProfileComplete = !!profile?.is_profile_complete;
 
   return (
     <AuthContext.Provider value={{
       user,
       profile,
-      isGuest,
-      isProfileComplete,
-      loading,
-      setUser,
       setProfile,
+      loading,
     }}>
       {children}
     </AuthContext.Provider>
@@ -50,4 +45,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-export default AuthContext;
