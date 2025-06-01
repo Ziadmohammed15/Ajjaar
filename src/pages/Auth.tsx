@@ -2,17 +2,21 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Eye, EyeOff, User, Mail } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../services/supabaseClient';
+// احذف bcrypt لأن بيئة المتصفح وBolt لا تدعمها عادة
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { showSuccess } = useToast();
+  const { signIn } = useAuth();
+  const { showError, showSuccess } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Login state
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Register state
@@ -24,12 +28,12 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
-  // تسجيل الدخول
+  // تسجيل الدخول باسم المستخدم وكلمة المرور فقط
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!loginEmail || !loginPassword) {
+    if (!loginUsername || !loginPassword) {
       setError('كل الحقول مطلوبة');
       return;
     }
@@ -37,14 +41,22 @@ const Auth = () => {
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password: loginPassword
-      });
-      if (error) throw error;
+      // جلب المستخدم بناء على اسم المستخدم
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', loginUsername)
+        .single();
 
+      if (error || !user) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+
+      // تحقق كلمة السر (مقارنة نصية فقط، غير آمن للإنتاج)
+      const passwordMatch = loginPassword === user.password;
+      if (!passwordMatch) throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+
+      signIn(user);
       showSuccess('تم تسجيل الدخول بنجاح');
-      navigate('/user-type');
+      navigate('/user-type'); // التوجيه لصفحة اختيار نوع الحساب
     } catch (error: any) {
       setError(error.message || 'فشل تسجيل الدخول');
     } finally {
@@ -52,7 +64,7 @@ const Auth = () => {
     }
   };
 
-  // تسجيل مستخدم جديد
+  // تسجيل مستخدم جديد (username, email, password, confirm password)
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -89,29 +101,37 @@ const Auth = () => {
     setIsSubmitting(true);
 
     try {
-      // التسجيل في Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { username }
-        }
-      });
-      if (error) throw error;
+      // تحقق من تكرار username أو email
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .or(`username.eq.${username},email.eq.${email}`)
+        .maybeSingle();
 
-      // إنشاء صف إضافي في جدول users (بدون كلمة مرور)
-      await supabase
+      if (existingUser) {
+        setError('اسم المستخدم أو البريد الإلكتروني مستخدم بالفعل');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // إضافة المستخدم في قاعدة البيانات (بدون تشفير كلمة المرور، فقط لأغراض التجربة)
+      const { data, error } = await supabase
         .from('users')
         .insert([
           {
-            id: data?.user?.id, // ID المستخدم من auth
             username,
             email,
+            password,
             profile_completed: false,
           }
-        ]);
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
 
       showSuccess('تم إنشاء الحساب بنجاح. يرجى اختيار نوع الحساب.');
+      // توجيه المستخدم مباشرة لصفحة اختيار نوع الحساب
       navigate('/user-type');
       setUsername('');
       setEmail('');
@@ -169,18 +189,18 @@ const Auth = () => {
               <form onSubmit={handleLogin} className="glass-morphism p-6 rounded-2xl">
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    البريد الإلكتروني
+                    اسم المستخدم
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Mail className="w-5 h-5 text-secondary-400" />
+                      <User className="w-5 h-5 text-secondary-400" />
                     </div>
                     <input
-                      type="email"
+                      type="text"
                       className="input-field pr-12 text-left"
-                      placeholder="أدخل البريد الإلكتروني"
-                      value={loginEmail}
-                      onChange={(e) => setLoginEmail(e.target.value)}
+                      placeholder="أدخل اسم المستخدم"
+                      value={loginUsername}
+                      onChange={(e) => setLoginUsername(e.target.value)}
                       required
                     />
                   </div>
@@ -350,7 +370,7 @@ const Auth = () => {
                       className="w-4 h-4 text-primary-600 bg-secondary-100 border-secondary-300 rounded focus:ring-primary-500"
                     />
                     <label htmlFor="terms" className="mr-2 block text-sm text-secondary-700 dark:text-secondary-300">
-                      أوافق على <a href="/terms" className="text-primary-600 dark:text-primary-400 hover:underline">الشروط والأحكام</a>
+                      أوافق على <Link to="/terms" className="text-primary-600 dark:text-primary-400 hover:underline">الشروط والأحكام</Link>
                     </label>
                   </div>
                 </div>
