@@ -1,54 +1,42 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "../services/supabaseClient";
+import React, { createContext, useState, useContext } from 'react';
 
-// تعريف السياق
-export const AuthContext = createContext();
+interface UserType {
+  id: number;
+  username: string;
+  email: string;
+  phone?: string;
+  city?: string;
+  accountType?: string;
+  description?: string;
+  profile_completed: boolean;
+  avatar_url?: string;
+}
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // المستخدم الحالي (أو null للزائر)
-  const [profile, setProfile] = useState(null); // بيانات الملف الشخصي (من جدول profiles)
-  const [loading, setLoading] = useState(true);
+interface AuthContextType {
+  user: UserType | null;
+  signIn: (user: UserType) => void;
+  signOut: () => void;
+  updateUser: (user: UserType) => void;
+}
 
-  useEffect(() => {
-    const getUser = async () => {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-      if (user) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
-        setProfile(profileData);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    };
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<UserType | null>(null);
 
-    getUser();
-    const { data: listener } = supabase.auth.onAuthStateChange(getUser);
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
-  const isGuest = !user;
-  const isProfileComplete = !!profile?.is_profile_complete;
+  const signIn = (user: UserType) => setUser(user);
+  const signOut = () => setUser(null);
+  const updateUser = (user: UserType) => setUser(user);
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      profile,
-      isGuest,
-      isProfileComplete,
-      loading,
-      setUser,
-      setProfile
-    }}>
+    <AuthContext.Provider value={{ user, signIn, signOut, updateUser }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+};
