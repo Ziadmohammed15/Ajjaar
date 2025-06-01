@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { User, Search, Star, ShieldCheck } from "lucide-react";
+import { User, Search, Star, ShieldCheck, LogIn } from "lucide-react";
 
 const Welcome = () => {
   const navigate = useNavigate();
@@ -79,16 +79,23 @@ const Welcome = () => {
         ))}
       </div>
 
-      {/* الزر */}
+      {/* زر تصفح الخدمات */}
       <motion.button
         whileHover={{ scale: 1.06 }}
         whileTap={{ scale: 0.96 }}
         onClick={() => navigate('/home')}
-        className="btn-primary w-64 py-3 text-lg font-bold shadow-lg"
+        className="btn-primary w-64 py-3 text-lg font-bold shadow-lg mb-4"
         transition={{ delay: 0.6 }}
       >
         تصفح الخدمات
       </motion.button>
+      {/* زر تسجيل الدخول أو إنشاء حساب */}
+      <button
+        onClick={() => navigate('/auth')}
+        className="mt-2 text-primary-600 hover:underline flex items-center"
+      >
+        <LogIn className="ml-2" /> تسجيل الدخول أو إنشاء حساب
+      </button>
     </div>
   );
 };
