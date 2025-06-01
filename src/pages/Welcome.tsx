@@ -1,67 +1,28 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React from "react";
+import { useNavigate } from "react-router-dom";
 
 const Welcome = () => {
+  const navigate = useNavigate();
   return (
-    <div className="app-container flex flex-col bg-dots bg-noise">
-      <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <motion.div 
-            className="w-32 h-32 mx-auto mb-4"
-            whileHover={{ scale: 1.1, rotate: 5 }}
-          >
-            <img 
-              src="https://l.top4top.io/p_3343oc4gu1.png" 
-              alt="أجار" 
-              className="w-full h-full object-contain"
-            />
-          </motion.div>
-        </motion.div>
-        
-        <motion.h1
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-4xl font-bold mb-3 text-gradient"
-        >
-          أهلاً بك في أجار
-        </motion.h1>
-        
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="text-lg mb-8 text-secondary-600 dark:text-secondary-300"
-        >
-          منصة حجز وإدارة الخدمات المتكاملة
-        </motion.p>
-        
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="w-full"
-        >
-          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-            <Link 
-              to="/auth" 
-              className="btn-modern flex items-center justify-center w-full"
-            >
-              <span>تسجيل الدخول</span>
-              <ArrowLeft className="mr-2 h-5 w-5" />
-            </Link>
-          </motion.div>
-        </motion.div>
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-white dark:bg-secondary-900">
+      <h1 className="text-4xl font-bold mb-8 text-gradient">مرحبًا بك في أجّار!</h1>
+      <p className="mb-8 text-lg text-secondary-700 dark:text-secondary-200 text-center">
+        يمكنك تصفح جميع الخدمات والطلبات بدون تسجيل دخول.<br />
+        إذا أردت إضافة خدمة أو طلب، سنطلب منك تسجيل الدخول وإكمال بياناتك فقط عند الحاجة.
+      </p>
+      <button
+        onClick={() => navigate('/home')}
+        className="btn-primary mb-4 w-64"
+      >
+        تصفح الخدمات
+      </button>
+      <button
+        onClick={() => navigate('/auth')}
+        className="btn-secondary w-64"
+      >
+        تسجيل الدخول / حساب جديد
+      </button>
     </div>
   );
 };
-
 export default Welcome;
