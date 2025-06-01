@@ -1,192 +1,322 @@
-import React, { useState } from "react";
-import { supabase } from "../services/supabaseClient";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { User, MapPin, Mail, Camera, Check } from 'lucide-react';
+import Header from '../components/Header';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabaseClient';
+import { useToast } from '../context/ToastContext';
 
 const CompleteProfile = () => {
+  const { user, updateProfile } = useAuth();
   const navigate = useNavigate();
-  const [step, setStep] = useState(1);
-
-  // 1. الهاتف والتحقق
-  const [phone, setPhone] = useState("");
-  const [phoneError, setPhoneError] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState("");
-  const [otpError, setOtpError] = useState("");
-  const [otpLoading, setOtpLoading] = useState(false);
-
-  // 2. كلمة السر
-  const [password, setPassword] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  // 3. معلومات اختيارية
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [bio, setBio] = useState("");
-  const [location, setLocation] = useState("");
-  const [avatarUrl, setAvatarUrl] = useState("");
-  const [submitLoading, setSubmitLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
-  // إرسال رمز التحقق
-  const sendOtp = async () => {
-    setOtpLoading(true);
-    setPhoneError("");
-    try {
-      // مثال: await supabase.auth.signInWithOtp({ phone });
-      setOtpSent(true);
-    } catch (e) {
-      setPhoneError("فشل إرسال رمز التحقق. جرب مرة أخرى.");
-    }
-    setOtpLoading(false);
+  const { showSuccess, showError } = useToast();
+  
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [location, setLocation] = useState('');
+  const [userType, setUserType] = useState<'client' | 'provider'>('client');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (error) throw error;
+        
+        if (data) {
+          setName(data.name || '');
+          setEmail(data.email || '');
+          setLocation(data.location || '');
+          setUserType(data.user_type as 'client' | 'provider' || 'client');
+          setAvatarUrl(data.avatar_url);
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        showError('حدث خطأ أثناء تحميل بيانات الملف الشخصي');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadProfile();
+  }, [user, navigate, showError]);
+  
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Preview the image
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAvatarUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    
+    setAvatarFile(file);
   };
-
-  // تحقق من الرمز
-  const verifyOtp = async () => {
-    setOtpError("");
-    setOtpLoading(true);
+  
+  const uploadAvatar = async (): Promise<string | null> => {
+    if (!avatarFile || !user) return avatarUrl;
+    
+    setIsUploading(true);
     try {
-      // مثال: await supabase.auth.verifyOtp({ phone, token: otp, type: 'sms' });
-      setStep(2);
-    } catch (e) {
-      setOtpError("رمز التحقق غير صحيح أو منتهي.");
+      const fileExt = avatarFile.name.split('.').pop();
+      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { error } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, avatarFile);
+        
+      if (error) throw error;
+      
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+        
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      showError('فشل في رفع الصورة الشخصية');
+      return null;
+    } finally {
+      setIsUploading(false);
     }
-    setOtpLoading(false);
   };
-
-  // حفظ كلمة السر
-  const handlePassword = async () => {
-    setPasswordError("");
-    if (password.length < 6) {
-      setPasswordError("كلمة السر يجب أن تكون 6 أحرف على الأقل.");
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) {
+      navigate('/auth');
       return;
     }
-    if (password !== confirmPassword) {
-      setPasswordError("كلمتا السر غير متطابقتين.");
+    
+    if (!name) {
+      showError('الاسم مطلوب');
       return;
     }
-    setStep(3);
-  };
-
-  // حفظ باقي البيانات
-  const handleProfile = async () => {
-    setSubmitLoading(true);
+    
+    setIsSubmitting(true);
+    
     try {
-      // تحديث بيانات الملف الشخصي في قاعدة البيانات
-      // مثال: await supabase.from("profiles").update({ name, email, bio, location, avatar_url: avatarUrl, is_profile_complete: true }).eq("phone", phone);
-      setSuccess(true);
-      setTimeout(() => {
-        navigate("/");
-      }, 1500);
-    } catch (e) {
-      alert("فشل حفظ الملف الشخصي.");
+      // Upload avatar if changed
+      let finalAvatarUrl = avatarUrl;
+      if (avatarFile) {
+        finalAvatarUrl = await uploadAvatar();
+      }
+      
+      // Update profile
+      const { error } = await updateProfile({
+        name,
+        email: email || null,
+        location: location || null,
+        user_type: userType,
+        avatar_url: finalAvatarUrl,
+        updated_at: new Date().toISOString()
+      });
+      
+      if (error) throw error;
+      
+      showSuccess('تم تحديث الملف الشخصي بنجاح');
+      
+      // Navigate based on user type
+      if (userType === 'provider') {
+        navigate('/provider/home');
+      } else {
+        navigate('/home');
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      showError('فشل في تحديث الملف الشخصي');
+    } finally {
+      setIsSubmitting(false);
     }
-    setSubmitLoading(false);
   };
-
+  
+  if (isLoading) {
+    return (
+      <>
+        <Header title="إكمال الملف الشخصي" showBack={true} />
+        <div className="page-container flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      </>
+    );
+  }
+  
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-xl shadow border">
-      <h2 className="text-xl font-bold mb-4 text-center">إكمال الملف الشخصي</h2>
-      {step === 1 && (
-        <>
-          <label className="block mb-2 font-medium">رقم الجوال</label>
-          <input
-            type="tel"
-            className="input-field w-full mb-2"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="05xxxxxxxx"
-            disabled={otpSent}
-          />
-          {phoneError && <p className="text-red-500">{phoneError}</p>}
-          {!otpSent ? (
-            <button className="btn w-full" onClick={sendOtp} disabled={otpLoading}>
-              {otpLoading ? "جاري الإرسال..." : "إرسال رمز التحقق"}
+    <>
+      <Header title="إكمال الملف الشخصي" showBack={true} />
+      
+      <div className="page-container">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-morphism p-6 rounded-2xl"
+        >
+          <form onSubmit={handleSubmit}>
+            {/* Avatar Upload */}
+            <div className="flex flex-col items-center mb-6">
+              <div className="relative mb-4">
+                <div className="w-24 h-24 rounded-full overflow-hidden bg-secondary-100 dark:bg-secondary-800 border-4 border-white dark:border-secondary-700">
+                  {avatarUrl ? (
+                    <img 
+                      src={avatarUrl} 
+                      alt="الصورة الشخصية" 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <User className="w-12 h-12 text-secondary-400" />
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  id="avatar-upload"
+                  accept="image/*"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="avatar-upload"
+                  className="absolute bottom-0 right-0 bg-primary-500 text-white p-2 rounded-full shadow-lg cursor-pointer"
+                >
+                  <Camera className="w-4 h-4" />
+                </label>
+              </div>
+              <p className="text-sm text-secondary-500 dark:text-secondary-400">
+                الصورة الشخصية (اختياري)
+              </p>
+            </div>
+            
+            {/* Name Field - Required */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+                الاسم <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <User className="w-5 h-5 text-secondary-400" />
+                </div>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-field pr-10"
+                  placeholder="أدخل اسمك الكامل"
+                  required
+                />
+              </div>
+            </div>
+            
+            {/* User Type Selection - Required */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+                نوع الحساب <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setUserType('client')}
+                  className={`p-4 rounded-xl flex flex-col items-center justify-center ${
+                    userType === 'client'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-white dark:bg-secondary-800 text-secondary-700 dark:text-secondary-300 border border-secondary-200 dark:border-secondary-700'
+                  }`}
+                >
+                  <User className="w-6 h-6 mb-2" />
+                  <span>عميل</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserType('provider')}
+                  className={`p-4 rounded-xl flex flex-col items-center justify-center ${
+                    userType === 'provider'
+                      ? 'bg-primary-500 text-white'
+                      : 'bg-white dark:bg-secondary-800 text-secondary-700 dark:text-secondary-300 border border-secondary-200 dark:border-secondary-700'
+                  }`}
+                >
+                  <User className="w-6 h-6 mb-2" />
+                  <span>مقدم خدمة</span>
+                </button>
+              </div>
+            </div>
+            
+            {/* Email Field - Optional */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+                البريد الإلكتروني (اختياري)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <Mail className="w-5 h-5 text-secondary-400" />
+                </div>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-field pr-10"
+                  placeholder="أدخل بريدك الإلكتروني"
+                />
+              </div>
+            </div>
+            
+            {/* Location Field - Optional */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
+                الموقع (اختياري)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <MapPin className="w-5 h-5 text-secondary-400" />
+                </div>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="input-field pr-10"
+                  placeholder="أدخل موقعك"
+                />
+              </div>
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isSubmitting || isUploading || !name}
+              className="btn-modern w-full flex items-center justify-center"
+            >
+              {isSubmitting || isUploading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin ml-2"></div>
+                  <span>جاري الحفظ...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-5 h-5 ml-2" />
+                  <span>حفظ وإكمال</span>
+                </>
+              )}
             </button>
-          ) : (
-            <>
-              <label className="block mt-4 mb-2 font-medium">رمز التحقق</label>
-              <input
-                type="text"
-                className="input-field w-full mb-2"
-                value={otp}
-                onChange={e => setOtp(e.target.value)}
-              />
-              {otpError && <p className="text-red-500">{otpError}</p>}
-              <button className="btn w-full" onClick={verifyOtp} disabled={otpLoading}>
-                {otpLoading ? "جارٍ التحقق..." : "تحقق"}
-              </button>
-            </>
-          )}
-        </>
-      )}
-
-      {step === 2 && (
-        <>
-          <label className="block mb-2 font-medium">كلمة السر</label>
-          <input
-            type="password"
-            className="input-field w-full mb-2"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-          />
-          <label className="block mb-2 font-medium">تأكيد كلمة السر</label>
-          <input
-            type="password"
-            className="input-field w-full mb-2"
-            value={confirmPassword}
-            onChange={e => setConfirmPassword(e.target.value)}
-          />
-          {passwordError && <p className="text-red-500">{passwordError}</p>}
-          <button className="btn w-full" onClick={handlePassword}>
-            التالي
-          </button>
-        </>
-      )}
-
-      {step === 3 && (
-        <>
-          <label className="block mb-2 font-medium">الاسم (اختياري)</label>
-          <input
-            type="text"
-            className="input-field w-full mb-2"
-            value={name}
-            onChange={e => setName(e.target.value)}
-          />
-          <label className="block mb-2 font-medium">البريد الإلكتروني (اختياري)</label>
-          <input
-            type="email"
-            className="input-field w-full mb-2"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-          />
-          <label className="block mb-2 font-medium">نبذة عنك (اختياري)</label>
-          <textarea
-            className="input-field w-full mb-2"
-            value={bio}
-            onChange={e => setBio(e.target.value)}
-          />
-          <label className="block mb-2 font-medium">الموقع (اختياري)</label>
-          <input
-            type="text"
-            className="input-field w-full mb-2"
-            value={location}
-            onChange={e => setLocation(e.target.value)}
-          />
-          <label className="block mb-2 font-medium">الصورة الشخصية (رابط اختياري)</label>
-          <input
-            type="text"
-            className="input-field w-full mb-2"
-            value={avatarUrl}
-            onChange={e => setAvatarUrl(e.target.value)}
-          />
-          <button className="btn w-full" onClick={handleProfile} disabled={submitLoading}>
-            {submitLoading ? "جاري الحفظ..." : "حفظ وإنهاء"}
-          </button>
-          {success && <p className="text-green-600 text-center mt-4">تم اكتمال الملف بنجاح!</p>}
-        </>
-      )}
-    </div>
+          </form>
+        </motion.div>
+      </div>
+    </>
   );
 };
 
