@@ -1,42 +1,58 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "../services/supabaseClient";
 
-interface UserType {
-  id: number;
-  username: string;
-  email: string;
-  phone?: string;
-  city?: string;
-  accountType?: string;
-  description?: string;
-  profile_completed: boolean;
-  avatar_url?: string;
-}
+export const AuthContext = createContext();
 
-interface AuthContextType {
-  user: UserType | null;
-  signIn: (user: UserType) => void;
-  signOut: () => void;
-  updateUser: (user: UserType) => void;
-}
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null); // ممكن يكون null (زائر) أو user object
+  const [profile, setProfile] = useState(null); // بيانات البروفايل من قاعدة البيانات
+  const [loading, setLoading] = useState(true);
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+  // تحميل بيانات المستخدم عند فتح التطبيق أو تغيير الجلسة
+  useEffect(() => {
+    const getUser = async () => {
+      setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserType | null>(null);
+      if (user) {
+        // جلب بيانات البروفايل من جدول profiles
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        setProfile(profileData);
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+    };
 
-  const signIn = (user: UserType) => setUser(user);
-  const signOut = () => setUser(null);
-  const updateUser = (user: UserType) => setUser(user);
+    getUser();
+    // استمع لأي تغييرات في الجلسة (تسجيل دخول/خروج)
+    const { data: listener } = supabase.auth.onAuthStateChange(getUser);
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // هل المستخدم زائر؟
+  const isGuest = !user;
+  // هل الملف الشخصي مكتمل؟
+  const isProfileComplete = !!profile?.is_profile_complete;
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, updateUser }}>
+    <AuthContext.Provider value={{
+      user,
+      profile,
+      isGuest,
+      isProfileComplete,
+      loading,
+      setUser,
+      setProfile
+    }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
-};
+export const useAuth = () => useContext(AuthContext);
