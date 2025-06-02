@@ -1,113 +1,132 @@
 import React, { useState, useEffect } from 'react';
-import { services } from '../data/services';
 import Header from '../components/Header';
 import ServiceCard from '../components/ServiceCard';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlusCircle, Filter, AlertTriangle, Trash2, Eye, EyeOff, Edit, Share2, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SearchBar from '../components/SearchBar';
+import { supabase } from '../services/supabaseClient';
+import { useAuth } from '../context/AuthContext';
 
 const MyServices = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('active');
-  const [myServices, setMyServices] = useState<typeof services>([]);
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
+  const [myServices, setMyServices] = useState<any[]>([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [showPromoteModal, setShowPromoteModal] = useState(false);
-  
+
+  // جلب الخدمات الخاصة بالمستخدم الحالي من قاعدة البيانات
   useEffect(() => {
-    // Load services from localStorage if available
-    const storedServices = JSON.parse(localStorage.getItem('userServices') || '[]');
-    
-    // Combine with some default services for demo purposes
-    // Ensure each service has a unique ID
-    const defaultServices = services.slice(0, 3).map((service, index) => ({
-      ...service,
-      id: `default-${service.id}-${index}`, // Add index to ensure uniqueness
-      status: 'active'
-    }));
-    
-    const formattedStoredServices = storedServices.map((service: any, index: number) => ({
-      ...service,
-      id: `stored-${service.id}-${index}`, // Add index to ensure uniqueness
-      status: 'active'
-    }));
-    
-    setMyServices([...defaultServices, ...formattedStoredServices]);
-    
-    // Simulate loading
-    const timer = setTimeout(() => {
+    const fetchServices = async () => {
+      setIsLoading(true);
+      if (!user?.id) {
+        setMyServices([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // جلب كل الخدمات التي أنشأها المستخدم الحالي
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('provider_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        setMyServices(data);
+      } else {
+        setMyServices([]);
+      }
       setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
-  
+    };
+
+    fetchServices();
+  }, [user]);
+
   const handleDeleteService = (serviceId: string) => {
     setSelectedService(serviceId);
     setShowDeleteModal(true);
   };
-  
-  const confirmDelete = () => {
-    if (selectedService) {
+
+  const confirmDelete = async () => {
+    if (selectedService && user?.id) {
+      // حذف الخدمة من قاعدة البيانات
+      await supabase
+        .from('services')
+        .delete()
+        .eq('id', selectedService)
+        .eq('provider_id', user.id); // لا يمكن حذف إلا الخدمات الخاصة بك فقط
+
       setMyServices(prev => prev.filter(service => service.id !== selectedService));
-      // Update localStorage
-      const storedServices = JSON.parse(localStorage.getItem('userServices') || '[]');
-      const updatedServices = storedServices.filter((service: any) => service.id !== selectedService);
-      localStorage.setItem('userServices', JSON.stringify(updatedServices));
     }
     setShowDeleteModal(false);
     setSelectedService(null);
   };
-  
-  const handleToggleStatus = (serviceId: string) => {
-    setMyServices(prev => prev.map(service => 
-      service.id === serviceId 
-        ? { ...service, status: service.status === 'active' ? 'inactive' : 'active' }
-        : service
-    ));
+
+  const handleToggleStatus = async (serviceId: string) => {
+    const service = myServices.find(s => s.id === serviceId);
+    if (!service) return;
+
+    const newStatus = service.status === 'active' ? 'inactive' : 'active';
+    // تحديث حالة الخدمة في قاعدة البيانات
+    await supabase
+      .from('services')
+      .update({ status: newStatus })
+      .eq('id', serviceId)
+      .eq('provider_id', user.id); // فقط صاحب الخدمة يمكنه التعديل
+
+    setMyServices(prev =>
+      prev.map(service =>
+        service.id === serviceId ? { ...service, status: newStatus } : service
+      )
+    );
   };
-  
+
   const handlePromoteService = (serviceId: string) => {
     setSelectedService(serviceId);
     setShowPromoteModal(true);
   };
-  
+
   const handleShare = (serviceId: string) => {
-    // In a real app, this would use the Web Share API
+    // هذا مثال لمشاركة رابط الخدمة
+    const url = `${window.location.origin}/service/${serviceId}`;
+    navigator.clipboard.writeText(url);
     alert('تم نسخ رابط الخدمة!');
   };
-  
-  const filteredServices = myServices.filter(service => 
-    service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    service.description.toLowerCase().includes(searchTerm.toLowerCase())
+
+  const filteredServices = myServices.filter(service =>
+    service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    service.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
+
   const activeServices = filteredServices.filter(service => service.status === 'active');
   const inactiveServices = filteredServices.filter(service => service.status === 'inactive');
-  
+
   const displayedServices = activeTab === 'active' ? activeServices : inactiveServices;
 
   return (
     <>
       <Header title="خدماتي" showBack={true} />
-      
+
       <div className="page-container">
         <div className="mb-6">
-          <SearchBar 
+          <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}
             placeholder="ابحث في خدماتك..."
           />
         </div>
-        
+
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.3 }}
         >
-          <Link 
-            to="/provider/add-service" 
+          <Link
+            to="/provider/add-service"
             className="flex items-center justify-center btn-modern mb-6 relative overflow-hidden group"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-primary-400 to-primary-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -115,7 +134,7 @@ const MyServices = () => {
             <span className="relative z-10">إضافة خدمة جديدة</span>
           </Link>
         </motion.div>
-        
+
         <div className="flex mb-6 bg-secondary-100 dark:bg-secondary-800 rounded-xl p-1">
           <button
             className={`flex-1 py-2 text-center rounded-lg transition-all ${
@@ -138,12 +157,12 @@ const MyServices = () => {
             الخدمات المعلقة
           </button>
         </div>
-        
+
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map((_, index) => (
-              <motion.div 
-                key={`loading-${index}`} 
+              <motion.div
+                key={`loading-${index}`}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="card-modern h-72 shimmer"
@@ -156,10 +175,10 @@ const MyServices = () => {
               <div className="space-y-4 pb-20">
                 {displayedServices.map((service, index) => (
                   <div key={service.id} className="relative">
-                    <ServiceCard 
-                      service={service} 
-                      index={index} 
-                      isProvider={true} 
+                    <ServiceCard
+                      service={service}
+                      index={index}
+                      isProvider={true}
                     />
                     <div className="absolute top-3 right-3 flex space-x-2 rtl:space-x-reverse">
                       <motion.button
@@ -175,7 +194,7 @@ const MyServices = () => {
                           <Eye className="w-4 h-4 text-secondary-600 dark:text-secondary-400" />
                         )}
                       </motion.button>
-                      
+
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
@@ -185,7 +204,7 @@ const MyServices = () => {
                       >
                         <Share2 className="w-4 h-4 text-secondary-600 dark:text-secondary-400" />
                       </motion.button>
-                      
+
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
@@ -195,14 +214,14 @@ const MyServices = () => {
                       >
                         <DollarSign className="w-4 h-4 text-white" />
                       </motion.button>
-                      
+
                       <Link
                         to={`/provider/edit-service/${service.id}`}
                         className="w-8 h-8 backdrop-blur-glass bg-white/60 dark:bg-secondary-800/60 rounded-full flex items-center justify-center shadow-glass border border-white/20 dark:border-secondary-700/30"
                       >
                         <Edit className="w-4 h-4 text-secondary-600 dark:text-secondary-400" />
                       </Link>
-                      
+
                       <motion.button
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
@@ -227,12 +246,12 @@ const MyServices = () => {
                 </div>
                 <h3 className="text-lg font-bold text-secondary-800 dark:text-white mb-2">لا توجد خدمات</h3>
                 <p className="text-secondary-600 dark:text-secondary-400">
-                  {activeTab === 'active' 
-                    ? 'لا توجد خدمات نشطة حالياً' 
+                  {activeTab === 'active'
+                    ? 'لا توجد خدمات نشطة حالياً'
                     : 'لا توجد خدمات معلقة حالياً'}
                 </p>
-                <Link 
-                  to="/provider/add-service" 
+                <Link
+                  to="/provider/add-service"
                   className="mt-4 text-primary-600 dark:text-primary-400 font-medium hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
                 >
                   إضافة خدمة جديدة
@@ -242,7 +261,7 @@ const MyServices = () => {
           </>
         )}
       </div>
-      
+
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {showDeleteModal && (
@@ -285,7 +304,7 @@ const MyServices = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      
+
       {/* Promote Service Modal */}
       <AnimatePresence>
         {showPromoteModal && (
@@ -314,7 +333,7 @@ const MyServices = () => {
                     عرض الخدمة في القسم المميز لمدة 3 أيام
                   </p>
                 </div>
-                
+
                 <div className="card-glass p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium dark:text-white">باقة متقدمة</span>
@@ -324,7 +343,7 @@ const MyServices = () => {
                     عرض الخدمة في القسم المميز لمدة 7 أيام
                   </p>
                 </div>
-                
+
                 <div className="card-glass p-4">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium dark:text-white">باقة احترافية</span>
@@ -335,7 +354,7 @@ const MyServices = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex space-x-3 rtl:space-x-reverse">
                 <button
                   onClick={() => setShowPromoteModal(false)}
@@ -345,7 +364,6 @@ const MyServices = () => {
                 </button>
                 <button
                   onClick={() => {
-                    // Handle promotion
                     setShowPromoteModal(false);
                   }}
                   className="flex-1 py-2 px-4 rounded-xl bg-primary-500 text-white"
