@@ -142,7 +142,7 @@ const CompleteProfile = () => {
   if (isLoading) {
     return (
       <>
-        <Header title="إكمال الملف الشخصي" showBack={true} />
+        <Header title="إكمال الملف الشخصي\" showBack={true} />
         <div className="page-container flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
