@@ -66,6 +66,9 @@ function App() {
     return <>{children}</>;
   };
 
+  // Helper: تحديد هل هو موفر خدمة بناءً على الـprofile أو userType
+  const isProviderUser = profile?.user_type === 'provider' || userType === 'provider';
+
   return (
     <div className="bg-secondary-100 min-h-screen">
       <Routes>
@@ -85,9 +88,10 @@ function App() {
           }
         />
 
-        {/* Client routes */}
+        {/* Client and Public routes */}
         <Route element={<Layout userType="client" />}>
-          <Route path="/home" element={<Home />} />
+          <Route path="/home" element={<Home isProvider={isProviderUser} />} />
+          <Route path="/category/:categoryId" element={<Home isProvider={isProviderUser} />} />
           <Route path="/my-bookings" element={
             <ProtectedRoute>
               <MyBookings />
@@ -107,9 +111,6 @@ function App() {
             <ProtectedRoute>
               <Settings />
             </ProtectedRoute>
-          } />
-          <Route path="/category/:categoryId" element={
-            <Home />
           } />
         </Route>
 
