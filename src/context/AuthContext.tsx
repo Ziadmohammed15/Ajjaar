@@ -56,14 +56,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .from('profiles')
             .select('*')
             .eq('id', user.id)
-            .single();
+            .maybeSingle(); // Changed from single() to maybeSingle()
 
-          if (error) {
-            console.error('Error fetching profile:', error);
-            return;
+          if (error && error.code !== 'PGRST116') { // Only throw if it's not a "no rows returned" error
+            throw error;
           }
 
-          setProfile(data);
+          if (data) {
+            setProfile(data);
+          } else {
+            // If no profile exists, create a basic one
+            const { data: newProfile, error: createError } = await supabase
+              .from('profiles')
+              .insert([{ id: user.id, email: user.email }])
+              .select()
+              .single();
+
+            if (createError) throw createError;
+            setProfile(newProfile);
+          }
         } catch (error) {
           console.error('Error in profile fetch:', error);
         } finally {

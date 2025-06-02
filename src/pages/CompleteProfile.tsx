@@ -49,21 +49,6 @@ const CompleteProfile = () => {
       const fileExt = avatarFile.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
-      // First ensure the avatars bucket exists and has the correct policies
-      const { data: bucketExists } = await supabase
-        .storage
-        .getBucket('avatars');
-
-      if (!bucketExists) {
-        await supabase
-          .storage
-          .createBucket('avatars', {
-            public: true,
-            allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif'],
-            fileSizeLimit: 1024 * 1024 * 2 // 2MB
-          });
-      }
-
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(fileName, avatarFile, {
@@ -105,7 +90,7 @@ const CompleteProfile = () => {
       }
 
       const updates = {
-        id: user.id, // Ensure we're updating the correct profile
+        id: user.id,
         name,
         email: email || null,
         location: location || null,
@@ -142,7 +127,7 @@ const CompleteProfile = () => {
   if (isLoading) {
     return (
       <>
-        <Header title="إكمال الملف الشخصي\" showBack={true} />
+        <Header title="إكمال الملف الشخصي" showBack={true} />
         <div className="page-container flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
@@ -299,5 +284,3 @@ const CompleteProfile = () => {
     </>
   );
 };
-
-export default CompleteProfile;
