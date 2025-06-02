@@ -1,5 +1,3 @@
-import { Truck, Box, MapPin } from 'lucide-react';
-
 export interface Category {
   id: string;
   name: string;
@@ -33,17 +31,37 @@ export const categories: Category[] = [
     ]
   },
   {
-    id: 'vehicles',
-    name: 'السيارات',
-    icon: '🚗',
-    description: 'خدمات تأجير وصيانة المركبات بجميع أنواعها',
+    id: 'transport',
+    name: 'النقل',
+    icon: '🚚',
+    description: 'نقل عفش ونقل بضائع مثل الدينا والونيت',
     subcategories: [
-      { id: 'cars', name: 'سيارات', parentId: 'vehicles' },
-      { id: 'luxury-cars', name: 'سيارات فاخرة', parentId: 'vehicles' },
-      { id: 'buses', name: 'حافلات', parentId: 'vehicles' },
-      { id: 'trucks', name: 'شاحنات', parentId: 'vehicles' },
-      { id: 'motorcycles', name: 'دراجات نارية', parentId: 'vehicles' },
-      { id: 'car-maintenance', name: 'صيانة سيارات', parentId: 'vehicles' }
+      { id: 'furniture-moving', name: 'نقل عفش', parentId: 'transport' },
+      { id: 'goods-moving', name: 'نقل بضائع', parentId: 'transport' }
+    ]
+  },
+  {
+    id: 'heavy-equipment',
+    name: 'معدات ثقيلة',
+    icon: '🚜',
+    description: 'تأجير الشيولات والمعدات الكبيرة',
+    subcategories: [
+      { id: 'shovels', name: 'شيولات', parentId: 'heavy-equipment' },
+      { id: 'cranes', name: 'كرينات', parentId: 'heavy-equipment' },
+      { id: 'trucks', name: 'شاحنات كبيرة', parentId: 'heavy-equipment' },
+      { id: 'other-machines', name: 'معدات أخرى', parentId: 'heavy-equipment' }
+    ]
+  },
+  {
+    id: 'brides',
+    name: 'عرايس',
+    icon: '👰',
+    description: 'خدمات متكاملة للعرايس',
+    subcategories: [
+      { id: 'makeup', name: 'مكياج عرايس', parentId: 'brides' },
+      { id: 'bridal-photography', name: 'مصورات عرايس', parentId: 'brides' },
+      { id: 'kosha', name: 'كوش', parentId: 'brides' },
+      { id: 'stands', name: 'استاندات وملحقاتها', parentId: 'brides' }
     ]
   },
   {
@@ -103,46 +121,24 @@ export const categories: Category[] = [
     ]
   },
   {
-    id: 'personal-services',
-    name: 'خدمات شخصية',
-    icon: '👤',
-    description: 'خدمات العناية الشخصية والصحة والجمال',
-    subcategories: [
-      { id: 'beauty', name: 'تجميل وعناية', parentId: 'personal-services' },
-      { id: 'health', name: 'رعاية صحية', parentId: 'personal-services' },
-      { id: 'fitness', name: 'لياقة بدنية', parentId: 'personal-services' },
-      { id: 'education', name: 'تعليم وتدريب', parentId: 'personal-services' },
-      { id: 'childcare', name: 'رعاية أطفال', parentId: 'personal-services' },
-      { id: 'elderly-care', name: 'رعاية كبار السن', parentId: 'personal-services' }
-    ]
-  },
-  {
     id: 'food',
     name: 'الطعام',
     icon: '🍽️',
-    description: 'خدمات الطبخ والتوصيل وتقديم الطعام',
+    description: 'خدمات الطبخ وتقديم الطعام',
     subcategories: [
       { id: 'chefs', name: 'طباخين محترفين', parentId: 'food' },
       { id: 'catering-services', name: 'خدمات تموين', parentId: 'food' },
       { id: 'waiters', name: 'خدمة ضيافة وقرصون', parentId: 'food' },
-      { id: 'food-delivery', name: 'توصيل طعام', parentId: 'food' },
       { id: 'cooking-classes', name: 'دروس طبخ', parentId: 'food' },
       { id: 'special-diets', name: 'أنظمة غذائية خاصة', parentId: 'food' }
     ]
   },
   {
-    id: 'delivery',
-    name: 'خدمات التوصيل',
-    icon: '🚚',
-    description: 'خدمات توصيل البضائع والطلبات داخل المدن وبين المدن',
-    subcategories: [
-      { id: 'local-delivery', name: 'توصيل داخل المدينة', parentId: 'delivery' },
-      { id: 'intercity-delivery', name: 'توصيل بين المدن', parentId: 'delivery' },
-      { id: 'express-delivery', name: 'توصيل سريع', parentId: 'delivery' },
-      { id: 'heavy-delivery', name: 'توصيل البضائع الثقيلة', parentId: 'delivery' },
-      { id: 'cold-delivery', name: 'توصيل مبرد', parentId: 'delivery' },
-      { id: 'furniture-delivery', name: 'توصيل الأثاث', parentId: 'delivery' }
-    ]
+    id: 'other',
+    name: 'أخرى',
+    icon: '🛒',
+    description: 'أي تجارة أو خدمة لم يتم ذكرها في الأقسام السابقة',
+    subcategories: []
   }
 ];
 
