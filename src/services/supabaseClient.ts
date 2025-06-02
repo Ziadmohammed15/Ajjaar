@@ -38,4 +38,56 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-// باقي الكود كما هو في ملفك
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log(`Auth State Changed: ${event}`, session?.user?.id);
+});
+
+export const authHelpers = {
+  getCurrentUser: async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+      console.error('Get user error:', error);
+      throw new Error('Failed to get user');
+    }
+    return user;
+  },
+
+  ensureAuth: async () => {
+    const user = await authHelpers.getCurrentUser();
+    if (!user) throw new Error('Authentication required');
+    return user;
+  },
+
+  manageProfile: async (userId, updates) => {
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .update(updates)
+      .eq('id', userId)
+      .select();
+
+    if (error) {
+      console.error('Profile update error:', error);
+      throw new Error('Failed to update profile');
+    }
+    return data;
+  }
+};
+
+if (import.meta.env.MODE === 'development') {
+  (async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .limit(1);
+      
+      if (error) {
+        console.error('Connection test failed:', error);
+      } else {
+        console.log('✅ Supabase connected successfully');
+      }
+    } catch (err) {
+      console.error('Connection test error:', err);
+    }
+  })();
+}
