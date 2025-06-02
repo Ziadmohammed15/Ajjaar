@@ -36,53 +36,53 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
     categories: true,
     sort: true
   });
-  
+
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
     }));
   };
-  
+
   const handlePriceChange = (value: number) => {
     setLocalFilters(prev => ({
       ...prev,
       priceRange: [0, value]
     }));
   };
-  
+
   const handleRatingChange = (value: number) => {
     setLocalFilters(prev => ({
       ...prev,
       rating: value
     }));
   };
-  
+
   const handleCategoryToggle = (categoryId: string) => {
     setLocalFilters(prev => {
       const newCategories = prev.categories.includes(categoryId)
         ? prev.categories.filter(id => id !== categoryId)
         : [...prev.categories, categoryId];
-      
+
       return {
         ...prev,
         categories: newCategories
       };
     });
   };
-  
+
   const handleSortChange = (value: string) => {
     setLocalFilters(prev => ({
       ...prev,
       sortBy: value
     }));
   };
-  
+
   const handleApply = () => {
     onApplyFilters(localFilters);
     onClose();
   };
-  
+
   const handleReset = () => {
     onResetFilters();
     setLocalFilters({
@@ -92,7 +92,7 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
       sortBy: 'recommended'
     });
   };
-  
+
   const sortOptions = [
     { id: 'recommended', label: 'الأكثر ملاءمة' },
     { id: 'price_asc', label: 'السعر: من الأقل للأعلى' },
@@ -101,6 +101,7 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
     { id: 'newest', label: 'الأحدث' }
   ];
 
+  // الفئات الجديدة تأتي جاهزة من ملف categories.ts
   return (
     <AnimatePresence>
       {isOpen && (
@@ -133,7 +134,7 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                 <X className="w-5 h-5" />
               </motion.button>
             </div>
-            
+
             {/* Price Range */}
             <div className="mb-6 border-b border-secondary-100 dark:border-secondary-800 pb-6">
               <button 
@@ -147,7 +148,6 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                   <ChevronDown className="w-5 h-5 text-secondary-500" />
                 )}
               </button>
-              
               {expandedSections.price && (
                 <div className="px-2">
                   <input
@@ -168,7 +168,7 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                 </div>
               )}
             </div>
-            
+
             {/* Rating */}
             <div className="mb-6 border-b border-secondary-100 dark:border-secondary-800 pb-6">
               <button 
@@ -182,7 +182,6 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                   <ChevronDown className="w-5 h-5 text-secondary-500" />
                 )}
               </button>
-              
               {expandedSections.rating && (
                 <div className="space-y-2">
                   {[5, 4, 3, 2, 1].map((star) => (
@@ -207,7 +206,7 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                 </div>
               )}
             </div>
-            
+
             {/* Categories */}
             <div className="mb-6 border-b border-secondary-100 dark:border-secondary-800 pb-6">
               <button 
@@ -221,7 +220,6 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                   <ChevronDown className="w-5 h-5 text-secondary-500" />
                 )}
               </button>
-              
               {expandedSections.categories && (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {categories.map((category) => (
@@ -246,7 +244,7 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                 </div>
               )}
             </div>
-            
+
             {/* Sort By */}
             <div className="mb-6">
               <button 
@@ -260,7 +258,6 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                   <ChevronDown className="w-5 h-5 text-secondary-500" />
                 )}
               </button>
-              
               {expandedSections.sort && (
                 <div className="space-y-2">
                   {sortOptions.map((option) => (
@@ -282,7 +279,7 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
                 </div>
               )}
             </div>
-            
+
             <div className="flex space-x-3 rtl:space-x-reverse">
               <motion.button
                 whileHover={{ scale: 1.02 }}
