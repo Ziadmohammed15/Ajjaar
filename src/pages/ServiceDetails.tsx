@@ -1,46 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Star, MapPin, Clock, Calendar, User, ChevronDown, ChevronUp, Check, ArrowRight, Heart, Share2, MessageCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Star, MapPin, Heart, Share2, MessageCircle, User } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { supabase } from '../services/supabaseClient';
 import CommissionInfo from '../components/CommissionInfo';
 import RatingStars from '../components/RatingStars';
-import DateTimePicker from '../components/DateTimePicker';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 
 const ServiceDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { createConversation } = useChat();
 
   const [service, setService] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [showAllReviews, setShowAllReviews] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
 
   useEffect(() => {
     const fetchService = async () => {
       setIsLoading(true);
-
-      // جلب الخدمة من supabase
       const { data, error } = await supabase
         .from('services')
         .select('*')
         .eq('id', id)
         .single();
-
       setService(data || null);
       setIsLoading(false);
     };
     fetchService();
   }, [id]);
 
-  // امثلة بيانات تقييمات مؤقتة (يمكن ربطها مع جدول تقييمات لاحقاً)
+  // بيانات تقييمات مؤقتة (اختياري)
   const serviceReviews = [
     {
       id: 1,
@@ -79,26 +72,7 @@ const ServiceDetails = () => {
     );
   }
 
-  const availableTimes = [
-    '09:00 ص',
-    '10:00 ص',
-    '11:00 ص',
-    '12:00 م',
-    '01:00 م',
-    '02:00 م',
-    '03:00 م',
-    '04:00 م',
-  ];
-
   const toggleFavorite = () => setIsFavorite(!isFavorite);
-
-  const handleBookNow = () => {
-    if (selectedDate && selectedTime) {
-      navigate('/booking-confirmation');
-    } else {
-      setShowBookingModal(true);
-    }
-  };
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -117,7 +91,7 @@ const ServiceDetails = () => {
     }
   };
 
-  // دعم كل تسميات الصورة
+  // الصورة والعناصر الأساسية
   const image = service.image_url || service.image || '/placeholder.jpg';
   const title = service.title || 'بدون عنوان';
   const location = service.location || 'غير محدد';
@@ -125,7 +99,9 @@ const ServiceDetails = () => {
   const rating = typeof service.rating === 'number' ? service.rating : 0;
   const price = typeof service.price === 'number' ? service.price : 0;
   const features = Array.isArray(service.features) ? service.features : [];
-  const deliveryOptions = service.deliveryOptions || { type: 'none', price: 0, areas: [], estimatedTime: '', companyName: '' };
+
+  // تحديد ما إذا كان المستخدم هو مقدم الخدمة
+  const isProvider = profile?.user_type === 'provider' && user?.id === service.provider_id;
 
   return (
     <div className="app-container py-6">
@@ -174,42 +150,11 @@ const ServiceDetails = () => {
             ))}
           </div>
 
-          {/* خيارات التوصيل */}
-          {deliveryOptions && deliveryOptions.type !== 'none' && (
-            <div className="mb-4 p-3 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-              <div className="flex items-center gap-4">
-                <Truck className="w-5 h-5 text-primary-500" />
-                <span className="text-sm text-primary-600 dark:text-primary-400">
-                  {deliveryOptions.type === 'free' && 'توصيل مجاني'}
-                  {deliveryOptions.type === 'paid' && `توصيل ${deliveryOptions.price} ريال`}
-                  {deliveryOptions.type === 'company' && `توصيل عبر ${deliveryOptions.companyName}`}
-                </span>
-                <Clock className="w-5 h-5 text-primary-500 ml-4" />
-                <span className="text-sm text-primary-600 dark:text-primary-400">
-                  {deliveryOptions.estimatedTime}
-                </span>
-              </div>
-              {deliveryOptions.areas && deliveryOptions.areas.length > 0 && (
-                <div className="mt-2 text-xs text-secondary-500 dark:text-secondary-400">
-                  مناطق التغطية: {deliveryOptions.areas.join('، ')}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* السعر والعمولة */}
+          {/* السعر والعمولة: العمولة تظهر فقط لمقدم الخدمة */}
           <div className="flex items-center gap-6 mb-4">
             <span className="text-xl font-bold text-primary-600 dark:text-primary-400">{price} ريال / للساعة</span>
-            <CommissionInfo commission={price * 0.05} />
+            {isProvider && <CommissionInfo commission={price * 0.05} />}
           </div>
-
-          {/* زر احجز الآن */}
-          <button
-            className="btn-modern bg-primary-600 text-white px-6 py-2 rounded-xl font-bold"
-            onClick={handleBookNow}
-          >
-            احجز الآن
-          </button>
         </div>
       </div>
 
