@@ -36,53 +36,53 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
     categories: true,
     sort: true
   });
-
+  
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section]
     }));
   };
-
-  const handlePriceChange = (min: number, max: number) => {
+  
+  const handlePriceChange = (value: number) => {
     setLocalFilters(prev => ({
       ...prev,
-      priceRange: [min, max]
+      priceRange: [0, value]
     }));
   };
-
+  
   const handleRatingChange = (value: number) => {
     setLocalFilters(prev => ({
       ...prev,
       rating: value
     }));
   };
-
+  
   const handleCategoryToggle = (categoryId: string) => {
     setLocalFilters(prev => {
       const newCategories = prev.categories.includes(categoryId)
         ? prev.categories.filter(id => id !== categoryId)
         : [...prev.categories, categoryId];
-
+      
       return {
         ...prev,
         categories: newCategories
       };
     });
   };
-
+  
   const handleSortChange = (value: string) => {
     setLocalFilters(prev => ({
       ...prev,
       sortBy: value
     }));
   };
-
+  
   const handleApply = () => {
     onApplyFilters(localFilters);
     onClose();
   };
-
+  
   const handleReset = () => {
     onResetFilters();
     setLocalFilters({
@@ -92,7 +92,7 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
       sortBy: 'recommended'
     });
   };
-
+  
   const sortOptions = [
     { id: 'recommended', label: 'الأكثر ملاءمة' },
     { id: 'price_asc', label: 'السعر: من الأقل للأعلى' },
@@ -115,145 +115,191 @@ const ServiceFilters: React.FC<ServiceFiltersProps> = ({
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
-            className="bg-white dark:bg-secondary-900 rounded-t-2xl md:rounded-2xl w-full md:w-96 p-6 md:my-0 shadow-xl"
-            onClick={e => e.stopPropagation()}
+            transition={{ type: 'spring', damping: 25 }}
+            className="glass-morphism w-full max-w-md max-h-[85vh] overflow-y-auto rounded-t-2xl md:rounded-2xl p-6"
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg dark:text-white">تصفية الخدمات</h3>
-              <button onClick={onClose} className="btn-modern">
-                <X />
-              </button>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center">
+                <Filter className="w-5 h-5 ml-2 text-primary-500" />
+                <h3 className="text-xl font-bold dark:text-white">تصفية النتائج</h3>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={onClose}
+                className="p-2 rounded-full bg-secondary-100 dark:bg-secondary-800 text-secondary-500 dark:text-secondary-400"
+              >
+                <X className="w-5 h-5" />
+              </motion.button>
             </div>
-
-            {/* Price */}
-            <div className="mb-5">
-              <button
-                className="flex items-center w-full mb-2"
+            
+            {/* Price Range */}
+            <div className="mb-6 border-b border-secondary-100 dark:border-secondary-800 pb-6">
+              <button 
+                className="flex justify-between items-center w-full mb-4"
                 onClick={() => toggleSection('price')}
               >
-                <span className="font-medium">السعر</span>
-                {expandedSections.price ? <ChevronUp className="ml-auto" /> : <ChevronDown className="ml-auto" />}
-              </button>
-              <AnimatePresence>
-                {expandedSections.price && (
-                  <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}>
-                    {/* يمكنك هنا استخدام Slider أو إدخال يدوي */}
-                    <div className="flex gap-2 items-center">
-                      <input
-                        type="number"
-                        min={0}
-                        max={localFilters.priceRange[1]}
-                        value={localFilters.priceRange[0]}
-                        className="input w-20"
-                        onChange={e => handlePriceChange(Number(e.target.value), localFilters.priceRange[1])}
-                      />
-                      <span>-</span>
-                      <input
-                        type="number"
-                        min={localFilters.priceRange[0]}
-                        value={localFilters.priceRange[1]}
-                        className="input w-20"
-                        onChange={e => handlePriceChange(localFilters.priceRange[0], Number(e.target.value))}
-                      />
-                      <span>ريال</span>
-                    </div>
-                  </motion.div>
+                <span className="font-bold dark:text-white">نطاق السعر</span>
+                {expandedSections.price ? (
+                  <ChevronUp className="w-5 h-5 text-secondary-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-secondary-500" />
                 )}
-              </AnimatePresence>
+              </button>
+              
+              {expandedSections.price && (
+                <div className="px-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max="1000"
+                    step="50"
+                    value={localFilters.priceRange[1]}
+                    onChange={(e) => handlePriceChange(parseInt(e.target.value))}
+                    className="w-full h-2 bg-secondary-200 dark:bg-secondary-700 rounded-lg appearance-none cursor-pointer accent-primary-500"
+                  />
+                  <div className="flex justify-between mt-2">
+                    <span className="text-sm text-secondary-500 dark:text-secondary-400">0 ريال</span>
+                    <span className="text-sm font-medium text-primary-600 dark:text-primary-400">
+                      {localFilters.priceRange[1]} ريال
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
-
+            
             {/* Rating */}
-            <div className="mb-5">
-              <button
-                className="flex items-center w-full mb-2"
+            <div className="mb-6 border-b border-secondary-100 dark:border-secondary-800 pb-6">
+              <button 
+                className="flex justify-between items-center w-full mb-4"
                 onClick={() => toggleSection('rating')}
               >
-                <span className="font-medium">التقييم</span>
-                {expandedSections.rating ? <ChevronUp className="ml-auto" /> : <ChevronDown className="ml-auto" />}
-              </button>
-              <AnimatePresence>
-                {expandedSections.rating && (
-                  <motion.div>
-                    <div className="flex gap-2 items-center">
-                      {[5, 4, 3, 2, 1].map(r => (
-                        <button
-                          key={r}
-                          className={`px-2 py-1 rounded ${localFilters.rating === r ? 'bg-primary-500 text-white' : 'bg-secondary-100 dark:bg-secondary-800 text-secondary-600 dark:text-secondary-200'}`}
-                          onClick={() => handleRatingChange(r)}
-                          type="button"
-                        >
-                          <RatingStars rating={r} />
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
+                <span className="font-bold dark:text-white">التقييم</span>
+                {expandedSections.rating ? (
+                  <ChevronUp className="w-5 h-5 text-secondary-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-secondary-500" />
                 )}
-              </AnimatePresence>
+              </button>
+              
+              {expandedSections.rating && (
+                <div className="space-y-2">
+                  {[5, 4, 3, 2, 1].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => handleRatingChange(star)}
+                      className={`flex items-center justify-between w-full p-2 rounded-lg ${
+                        localFilters.rating === star 
+                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400' 
+                          : 'hover:bg-secondary-50 dark:hover:bg-secondary-800'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <RatingStars rating={star} size="sm" className="ml-2" />
+                        <span className="text-sm dark:text-white">{star} نجوم أو أكثر</span>
+                      </div>
+                      {localFilters.rating === star && (
+                        <Check className="w-4 h-4 text-primary-500" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-
+            
             {/* Categories */}
-            <div className="mb-5">
-              <button
-                className="flex items-center w-full mb-2"
+            <div className="mb-6 border-b border-secondary-100 dark:border-secondary-800 pb-6">
+              <button 
+                className="flex justify-between items-center w-full mb-4"
                 onClick={() => toggleSection('categories')}
               >
-                <span className="font-medium">التصنيفات</span>
-                {expandedSections.categories ? <ChevronUp className="ml-auto" /> : <ChevronDown className="ml-auto" />}
-              </button>
-              <AnimatePresence>
-                {expandedSections.categories && (
-                  <motion.div>
-                    <div className="flex flex-wrap gap-2">
-                      {categories.map(cat => (
-                        <button
-                          type="button"
-                          key={cat.id}
-                          className={`px-3 py-1 rounded-full border ${localFilters.categories.includes(cat.id) ? 'bg-primary-500 text-white border-primary-600' : 'bg-secondary-100 dark:bg-secondary-800 border-secondary-300 dark:border-secondary-600 text-secondary-700 dark:text-secondary-300'}`}
-                          onClick={() => handleCategoryToggle(cat.id)}
-                        >
-                          {cat.name}
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
+                <span className="font-bold dark:text-white">الفئات</span>
+                {expandedSections.categories ? (
+                  <ChevronUp className="w-5 h-5 text-secondary-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-secondary-500" />
                 )}
-              </AnimatePresence>
+              </button>
+              
+              {expandedSections.categories && (
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => handleCategoryToggle(category.id)}
+                      className={`flex items-center justify-between w-full p-2 rounded-lg ${
+                        localFilters.categories.includes(category.id) 
+                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400' 
+                          : 'hover:bg-secondary-50 dark:hover:bg-secondary-800'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <span className="text-xl ml-2">{category.icon}</span>
+                        <span className="text-sm dark:text-white">{category.name}</span>
+                      </div>
+                      {localFilters.categories.includes(category.id) && (
+                        <Check className="w-4 h-4 text-primary-500" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            {/* Sort */}
-            <div className="mb-5">
-              <button
-                className="flex items-center w-full mb-2"
+            
+            {/* Sort By */}
+            <div className="mb-6">
+              <button 
+                className="flex justify-between items-center w-full mb-4"
                 onClick={() => toggleSection('sort')}
               >
-                <span className="font-medium">ترتيب النتائج</span>
-                {expandedSections.sort ? <ChevronUp className="ml-auto" /> : <ChevronDown className="ml-auto" />}
-              </button>
-              <AnimatePresence>
-                {expandedSections.sort && (
-                  <motion.div>
-                    <div className="flex flex-col gap-2">
-                      {sortOptions.map(opt => (
-                        <label key={opt.id} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="sort"
-                            value={opt.id}
-                            checked={localFilters.sortBy === opt.id}
-                            onChange={() => handleSortChange(opt.id)}
-                          />
-                          <span>{opt.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </motion.div>
+                <span className="font-bold dark:text-white">ترتيب حسب</span>
+                {expandedSections.sort ? (
+                  <ChevronUp className="w-5 h-5 text-secondary-500" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-secondary-500" />
                 )}
-              </AnimatePresence>
+              </button>
+              
+              {expandedSections.sort && (
+                <div className="space-y-2">
+                  {sortOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => handleSortChange(option.id)}
+                      className={`flex items-center justify-between w-full p-2 rounded-lg ${
+                        localFilters.sortBy === option.id 
+                          ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400' 
+                          : 'hover:bg-secondary-50 dark:hover:bg-secondary-800'
+                      }`}
+                    >
+                      <span className="text-sm dark:text-white">{option.label}</span>
+                      {localFilters.sortBy === option.id && (
+                        <Check className="w-4 h-4 text-primary-500" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-
-            <div className="flex gap-3 mt-6">
-              <button className="btn-modern flex-1 bg-primary-600 text-white" onClick={handleApply}>تطبيق</button>
-              <button className="btn-modern flex-1" type="button" onClick={handleReset}>إعادة تعيين</button>
+            
+            <div className="flex space-x-3 rtl:space-x-reverse">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleReset}
+                className="flex-1 py-3 px-4 rounded-xl bg-secondary-100 dark:bg-secondary-800 text-secondary-700 dark:text-secondary-300 font-medium"
+              >
+                إعادة ضبط
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleApply}
+                className="flex-1 py-3 px-4 rounded-xl bg-primary-500 text-white font-medium shadow-button"
+              >
+                تطبيق الفلاتر
+              </motion.button>
             </div>
           </motion.div>
         </motion.div>
