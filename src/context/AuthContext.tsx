@@ -52,7 +52,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user && user.id) {
       const fetchProfile = async () => {
         try {
-          // جلب البروفايل بناءً على id فقط
           const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -66,7 +65,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (data) {
             setProfile(data);
           } else {
-            // أنشئ بروفايل جديد فقط إذا لم يوجد أبداً
             const { data: newProfile, error: createError } = await supabase
               .from('profiles')
               .insert([{ id: user.id }])
