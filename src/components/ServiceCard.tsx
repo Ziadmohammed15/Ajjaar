@@ -1,14 +1,14 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Heart, Edit, MoreVertical, MessageCircle, Truck, Clock, DollarSign } from 'lucide-react';
+import { Star, MapPin, Heart, MoreVertical, MessageCircle, Truck, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CommissionInfo from './CommissionInfo';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
+import type { Service } from '../types/service';
 
-// إضافة نوع افتراضي للـ Service لتفادي الأخطاء في القيم الناقصة
 interface ServiceCardProps {
-  service: any;
+  service: Service;
   index: number;
   isProvider?: boolean;
 }
@@ -20,24 +20,17 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, index, isProvider = 
   const { user } = useAuth();
   const { createConversation } = useChat();
 
-  // حماية ضد القيم الناقصة أو undefined/null
   if (!service) return null;
 
-  // استخدام قيم افتراضية إذا كانت البيانات ناقصة
-  const title = service.title || "بدون عنوان";
-  const description = service.description || "بدون وصف";
-  const image = service.image_url || service.image || "/placeholder.jpg";
-  const location = service.location || "غير محدد";
+  // دعم كل تسميات الصورة (image أو image_url)
+  const image = service.image_url || service.image || '/placeholder.jpg';
+  const title = service.title || 'بدون عنوان';
+  const location = service.location || 'غير محدد';
+  const description = service.description || '';
   const rating = typeof service.rating === 'number' ? service.rating : 0;
   const price = typeof service.price === 'number' ? service.price : 0;
   const features = Array.isArray(service.features) ? service.features : [];
-  const deliveryOptions = service.deliveryOptions || {
-    type: 'none',
-    price: null,
-    companyName: '',
-    areas: [],
-    estimatedTime: ''
-  };
+  const deliveryOptions = service.deliveryOptions || { type: 'none', price: 0, areas: [], estimatedTime: '', companyName: '' };
 
   const toggleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -141,7 +134,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, index, isProvider = 
 
             {/* Service features preview */}
             <div className="flex flex-wrap gap-1 mt-2">
-              {features.slice(0, 2).map((feature: any, idx: number) => (
+              {features.slice(0, 2).map((feature, idx) => (
                 <span key={idx} className="text-xs bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 px-2 py-1 rounded-full">
                   {typeof feature === 'string' && feature.length > 15 ? feature.substring(0, 15) + '...' : feature}
                 </span>
