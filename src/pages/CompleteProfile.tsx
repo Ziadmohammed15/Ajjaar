@@ -81,7 +81,15 @@ const CompleteProfile = () => {
       showError('يجب تسجيل الدخول أولاً');
       return;
     }
-    
+
+    // تحقق من user.id
+    if (!user.id) {
+      showError('معرف المستخدم (id) غير متوفر. يرجى إعادة تسجيل الدخول.');
+      return;
+    }
+    // اطبع القيمة في الكونسول للمساعدة في اكتشاف الأخطاء
+    console.log('Supabase user id:', user.id);
+
     setIsSubmitting(true);
     try {
       let finalAvatarUrl = avatarUrl;
@@ -90,7 +98,7 @@ const CompleteProfile = () => {
       }
 
       const updates = {
-        id: user.id,
+        id: user.id, // مهم جداً أن يكون user.id
         name,
         email: email || null,
         location: location || null,
@@ -100,13 +108,24 @@ const CompleteProfile = () => {
         updated_at: new Date().toISOString(),
       };
 
+      // اطبع البيانات قبل الإرسال
+      console.log('Sending profile data:', updates);
+
       const { data, error } = await supabase
         .from('profiles')
-        .upsert(updates)
+        .upsert(updates, { onConflict: 'id' }) // تأكد من استخدام onConflict مع id (مفتاح أساسي)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        showError(
+          error.message === 'new row violates row-level security policy for table "profiles"'
+            ? 'ليس لديك صلاحية تعديل هذا الحساب أو أن السياسات غير مفعلة بشكل صحيح في قاعدة البيانات.'
+            : 'فشل في تحديث الملف الشخصي: ' + error.message
+        );
+        return;
+      }
 
       setProfile(data);
       showSuccess('تم تحديث الملف الشخصي بنجاح');
@@ -127,7 +146,7 @@ const CompleteProfile = () => {
   if (isLoading) {
     return (
       <>
-        <Header title="إكمال الملف الشخصي\" showBack={true} />
+        <Header title="إكمال الملف الشخصي" showBack={true} />
         <div className="page-container flex items-center justify-center">
           <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
@@ -285,4 +304,4 @@ const CompleteProfile = () => {
   );
 };
 
-export default CompleteProfile
+export default CompleteProfile;
