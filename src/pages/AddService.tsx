@@ -5,7 +5,6 @@ import { motion } from 'framer-motion';
 import { useToast } from '../context/ToastContext';
 import { Camera, Plus, Tag, MapPin, DollarSign, FileText, Save, ChevronDown } from 'lucide-react';
 import { categories, getSubcategoriesByParent } from '../data/categories';
-import DeliveryOptionsForm from '../components/DeliveryOptionsForm';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
 import RequireCompleteProfile from '../components/RequireCompleteProfile';
@@ -39,13 +38,6 @@ const AddService = () => {
   });
 
   const [newFeature, setNewFeature] = useState('');
-  const [deliveryOptions, setDeliveryOptions] = useState({
-    type: 'none' as 'free' | 'paid' | 'none' | 'company',
-    price: 0,
-    companyName: '',
-    areas: [] as string[],
-    estimatedTime: ''
-  });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -139,31 +131,6 @@ const AddService = () => {
             }))
           );
         if (featuresError) throw featuresError;
-      }
-
-      if (deliveryOptions.type !== 'none') {
-        const { error: deliveryError } = await supabase
-          .from('delivery_options')
-          .insert({
-            service_id: service.id,
-            type: deliveryOptions.type,
-            price: deliveryOptions.type === 'paid' ? deliveryOptions.price : null,
-            company_name: deliveryOptions.type === 'company' ? deliveryOptions.companyName : null,
-            estimated_time: deliveryOptions.estimatedTime
-          });
-        if (deliveryError) throw deliveryError;
-
-        if (deliveryOptions.areas.length > 0) {
-          const { error: areasError } = await supabase
-            .from('service_areas')
-            .insert(
-              deliveryOptions.areas.map(area => ({
-                service_id: service.id,
-                area_name: area
-              }))
-            );
-          if (areasError) throw areasError;
-        }
       }
 
       showSuccess('تم نشر الخدمة بنجاح');
@@ -397,7 +364,7 @@ const AddService = () => {
               </select>
             </div>
 
-            {formData.category && (
+            {formData.category && getSubcategoriesByParent(formData.category).length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                   الفئة الفرعية
@@ -466,18 +433,6 @@ const AddService = () => {
                 </motion.div>
               ))}
             </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="mt-6"
-          >
-            <DeliveryOptionsForm
-              onSave={options => setDeliveryOptions(options)}
-              initialValues={deliveryOptions}
-            />
           </motion.div>
         </div>
       </>
