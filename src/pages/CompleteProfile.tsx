@@ -47,16 +47,38 @@ const CompleteProfile = () => {
     setIsUploading(true);
     try {
       const fileExt = avatarFile.name.split('.').pop();
-      const filePath = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error } = await supabase.storage
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      // First ensure the avatars bucket exists and has the correct policies
+      const { data: bucketExists } = await supabase
+        .storage
+        .getBucket('avatars');
+
+      if (!bucketExists) {
+        await supabase
+          .storage
+          .createBucket('avatars', {
+            public: true,
+            allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif'],
+            fileSizeLimit: 1024 * 1024 * 2 // 2MB
+          });
+      }
+
+      const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, avatarFile);
-      if (error) throw error;
+        .upload(fileName, avatarFile, {
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
       const { data } = supabase.storage
         .from('avatars')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
+
       return data.publicUrl;
     } catch (error) {
+      console.error('Error uploading avatar:', error);
       showError('فشل في رفع الصورة الشخصية');
       return null;
     } finally {
@@ -70,35 +92,47 @@ const CompleteProfile = () => {
       showError('الاسم مطلوب');
       return;
     }
+    if (!user) {
+      showError('يجب تسجيل الدخول أولاً');
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       let finalAvatarUrl = avatarUrl;
-      if (avatarFile && user) {
+      if (avatarFile) {
         finalAvatarUrl = await uploadAvatar();
       }
+
+      const updates = {
+        id: user.id, // Ensure we're updating the correct profile
+        name,
+        email: email || null,
+        location: location || null,
+        user_type: userType,
+        avatar_url: finalAvatarUrl,
+        is_profile_complete: true,
+        updated_at: new Date().toISOString(),
+      };
+
       const { data, error } = await supabase
         .from('profiles')
-        .update({
-          name,
-          email: email || null,
-          location: location || null,
-          user_type: userType,
-          avatar_url: finalAvatarUrl,
-          is_profile_complete: true,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user?.id)
+        .upsert(updates)
         .select()
         .single();
+
       if (error) throw error;
+
       setProfile(data);
       showSuccess('تم تحديث الملف الشخصي بنجاح');
+      
       if (userType === 'provider') {
         navigate('/provider/home');
       } else {
         navigate('/home');
       }
     } catch (error) {
+      console.error('Error updating profile:', error);
       showError('فشل في تحديث الملف الشخصي');
     } finally {
       setIsSubmitting(false);
