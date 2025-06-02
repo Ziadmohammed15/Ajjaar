@@ -98,8 +98,8 @@ const MyServices = () => {
   };
 
   const filteredServices = myServices.filter(service =>
-    service.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    service.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    (service.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (service.description || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const activeServices = filteredServices.filter(service => service.status === 'active');
