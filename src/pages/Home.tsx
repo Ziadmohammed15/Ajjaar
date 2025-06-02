@@ -5,7 +5,7 @@ import CategorySelector from '../components/CategorySelector';
 import ServiceCard from '../components/ServiceCard';
 import { Filter, PlusCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import PromotionBanner from '../components/PromotionBanner';
 import CategoryGrid from '../components/CategoryGrid';
@@ -18,7 +18,7 @@ interface HomeProps {
   isProvider?: boolean;
 }
 
-const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
+const Home: React.FC<HomeProps> = ({ isProvider }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -27,6 +27,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const { user, profile, loading } = useAuth();
+  const params = useParams();
 
   const [filters, setFilters] = useState({
     priceRange: [0, 500] as [number, number],
@@ -45,16 +46,28 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
     if (user) {
       const hasBeenReminded = localStorage.getItem('password_reminder_shown');
       if (!hasBeenReminded) {
-        const timer = setTimeout(() => {
+        const timer2 = setTimeout(() => {
           setShowPasswordReminder(true);
           localStorage.setItem('password_reminder_shown', 'true');
         }, 5000);
-        return () => clearTimeout(timer);
+        return () => clearTimeout(timer2);
       }
     }
 
     return () => clearTimeout(timer);
   }, [user]);
+
+  // حدد نوع المستخدم من الـ profile أو prop أو حتى من localStorage
+  const isProviderUser =
+    isProvider !== undefined
+      ? isProvider
+      : profile?.user_type === 'provider' ||
+        localStorage.getItem('userType') === 'provider';
+
+  // حدد الفئة المختارة من المسار إذا كان هناك categoryId
+  useEffect(() => {
+    if (params.categoryId) setSelectedCategory(params.categoryId);
+  }, [params.categoryId]);
 
   const categoryOptions = [
     { id: 'all', name: 'الكل' },
@@ -86,11 +99,12 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
 
   // زر إضافة خدمة متاح فقط إذا كان المستخدم مقدم خدمة ومسجل الدخول وملفه مكتمل
   const showAddService =
-    isProvider &&
+    isProviderUser &&
     !loading &&
     user &&
     profile &&
-    profile.user_type === 'provider';
+    profile.user_type === 'provider' &&
+    profile.is_profile_complete;
 
   const filteredServices = services.filter(service => {
     const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -153,7 +167,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
           >
             <h1 className="text-black dark:text-white">مرحباً بك 👋</h1>
             <p className="text-primary-100">
-              {isProvider
+              {isProviderUser
                 ? 'أدر خدماتك واستقبل الحجوزات'
                 : 'اكتشف أفضل الخدمات المتاحة'}
             </p>
@@ -175,7 +189,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
           <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}
-            placeholder={isProvider ? "ابحث في خدماتك..." : "ابحث عن خدمة..."}
+            placeholder={isProviderUser ? "ابحث في خدماتك..." : "ابحث عن خدمة..."}
           />
           <motion.button
             whileHover={{ scale: 1.1 }}
@@ -266,7 +280,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
           transition={{ delay: 0.4 }}
           className="text-lg font-bold mb-4 dark:text-white"
         >
-          {isProvider ? 'خدماتك المعروضة' : 'خدمات مميزة'}
+          {isProviderUser ? 'خدماتك المعروضة' : 'خدمات مميزة'}
         </motion.h2>
 
         {isLoading ? (
@@ -285,7 +299,7 @@ const Home: React.FC<HomeProps> = ({ isProvider = false }) => {
             {sortedServices.length > 0 ? (
               <div className="space-y-4 pb-20">
                 {sortedServices.map((service, index) => (
-                  <ServiceCard key={service.id} service={service} index={index} isProvider={isProvider} />
+                  <ServiceCard key={service.id} service={service} index={index} isProvider={isProviderUser} />
                 ))}
               </div>
             ) : (
