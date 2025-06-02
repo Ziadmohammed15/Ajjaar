@@ -12,36 +12,10 @@ import RequireCompleteProfile from '../components/RequireCompleteProfile';
 
 // قائمة المحافظات السعودية
 const saudiCities = [
-  "الرياض",
-  "جدة",
-  "مكة المكرمة",
-  "المدينة المنورة",
-  "الدمام",
-  "الخبر",
-  "الطائف",
-  "تبوك",
-  "بريدة",
-  "خميس مشيط",
-  "حائل",
-  "الجبيل",
-  "أبها",
-  "نجران",
-  "ينبع",
-  "القنفذة",
-  "الظهران",
-  "سكاكا",
-  "عرعر",
-  "رفحاء",
-  "ضباء",
-  "الباحة",
-  "الزلفي",
-  "الدوادمي",
-  "وادي الدواسر",
-  "بيشة",
-  "النماص",
-  "بلجرشي",
-  "شرورة",
-  "الحوية"
+  "الرياض", "جدة", "مكة المكرمة", "المدينة المنورة", "الدمام", "الخبر", "الطائف", "تبوك",
+  "بريدة", "خميس مشيط", "حائل", "الجبيل", "أبها", "نجران", "ينبع", "القنفذة", "الظهران",
+  "سكاكا", "عرعر", "رفحاء", "ضباء", "الباحة", "الزلفي", "الدوادمي", "وادي الدواسر", "بيشة",
+  "النماص", "بلجرشي", "شرورة", "الحوية"
 ];
 
 const AddService = () => {
@@ -73,9 +47,6 @@ const AddService = () => {
     estimatedTime: ''
   });
 
-  // التحقق من اكتمال الملف الشخصي قبل السماح بالنشر
-  // من خلال مكون RequireCompleteProfile
-
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -83,13 +54,11 @@ const AddService = () => {
         showError('حجم الصورة يجب أن لا يتجاوز 5 ميجابايت');
         return;
       }
-
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
-
       setImageFile(file);
     }
   };
@@ -112,65 +81,32 @@ const AddService = () => {
   };
 
   const validateForm = () => {
-    if (!formData.title) {
-      showError('عنوان الخدمة مطلوب');
-      return false;
-    }
-
-    if (!formData.description) {
-      showError('وصف الخدمة مطلوب');
-      return false;
-    }
-
-    if (!formData.price || isNaN(Number(formData.price))) {
-      showError('السعر مطلوب ويجب أن يكون رقماً');
-      return false;
-    }
-
-    if (!formData.category) {
-      showError('الفئة مطلوبة');
-      return false;
-    }
-
-    if (!formData.location) {
-      showError('الموقع مطلوب');
-      return false;
-    }
-
-    if (!imageFile && !imagePreview) {
-      showError('صورة الخدمة مطلوبة');
-      return false;
-    }
-
+    if (!formData.title) { showError('عنوان الخدمة مطلوب'); return false; }
+    if (!formData.description) { showError('وصف الخدمة مطلوب'); return false; }
+    if (!formData.price || isNaN(Number(formData.price))) { showError('السعر مطلوب ويجب أن يكون رقماً'); return false; }
+    if (!formData.category) { showError('الفئة مطلوبة'); return false; }
+    if (!formData.location) { showError('الموقع مطلوب'); return false; }
+    if (!imageFile && !imagePreview) { showError('صورة الخدمة مطلوبة'); return false; }
     return true;
   };
 
   const handlePublish = async () => {
     if (!validateForm()) return;
-    if (!user) {
-      showError('يجب تسجيل الدخول أولاً');
-      return;
-    }
-
+    if (!user) { showError('يجب تسجيل الدخول أولاً'); return; }
     setIsSubmitting(true);
 
     try {
       let imageUrl = '';
-
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
-
+        const fileName = `${user.id}_${Date.now()}.${fileExt}`;
         const { error: uploadError } = await supabase.storage
           .from('services')
           .upload(fileName, imageFile);
-
         if (uploadError) throw uploadError;
-
         const { data: { publicUrl } } = supabase.storage
           .from('services')
           .getPublicUrl(fileName);
-
         imageUrl = publicUrl;
       }
 
@@ -185,7 +121,8 @@ const AddService = () => {
           location: formData.location,
           image_url: imageUrl,
           provider_id: user.id,
-          status: 'active'
+          status: 'active',
+          rating: 0
         })
         .select()
         .single();
@@ -201,7 +138,6 @@ const AddService = () => {
               feature
             }))
           );
-
         if (featuresError) throw featuresError;
       }
 
@@ -215,7 +151,6 @@ const AddService = () => {
             company_name: deliveryOptions.type === 'company' ? deliveryOptions.companyName : null,
             estimated_time: deliveryOptions.estimatedTime
           });
-
         if (deliveryError) throw deliveryError;
 
         if (deliveryOptions.areas.length > 0) {
@@ -227,7 +162,6 @@ const AddService = () => {
                 area_name: area
               }))
             );
-
           if (areasError) throw areasError;
         }
       }
