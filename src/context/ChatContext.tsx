@@ -32,7 +32,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [voiceRecorder, setVoiceRecorder] = useState<RecordRTC | null>(null);
 
-  // Load conversations
+  // Load conversations with simplified query
   useEffect(() => {
     if (!user) {
       setConversations([]);
@@ -42,19 +42,37 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const loadConversations = async () => {
       try {
-        const { data, error } = await supabase
+        // First get the user's conversation participants
+        const { data: participantsData, error: participantsError } = await supabase
+          .from('conversation_participants')
+          .select('conversation_id')
+          .eq('user_id', user.id);
+
+        if (participantsError) throw participantsError;
+
+        const conversationIds = participantsData.map(p => p.conversation_id);
+
+        if (conversationIds.length === 0) {
+          setConversations([]);
+          setLoadingConversations(false);
+          return;
+        }
+
+        // Then get the conversations with their participants
+        const { data: conversationsData, error: conversationsError } = await supabase
           .from('conversations')
           .select(`
             *,
             participants:conversation_participants(
-              user:profiles(*)
+              user:profiles(id, name, avatar_url)
             )
           `)
+          .in('id', conversationIds)
           .order('updated_at', { ascending: false });
 
-        if (error) throw error;
+        if (conversationsError) throw conversationsError;
 
-        const formattedConversations: Conversation[] = data.map(conv => ({
+        const formattedConversations: Conversation[] = conversationsData.map(conv => ({
           id: conv.id,
           created_at: conv.created_at,
           service_id: conv.service_id,
@@ -64,8 +82,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           participants: conv.participants.map(p => ({
             id: p.user.id,
             name: p.user.name,
-            avatar_url: p.user.avatar_url,
-            online: p.user.online
+            avatar_url: p.user.avatar_url
           }))
         }));
 
