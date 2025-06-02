@@ -1,12 +1,11 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Heart, Edit, MoreVertical, MessageCircle, Truck, Clock, DollarSign } from 'lucide-react';
+import { Star, MapPin, Heart, Edit, MoreVertical, MessageCircle, DollarSign } from 'lucide-react';
 import { motion } from 'framer-motion';
 import CommissionInfo from './CommissionInfo';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 
-// إضافة نوع افتراضي للـ Service لتفادي الأخطاء في القيم الناقصة
 interface ServiceCardProps {
   service: any;
   index: number;
@@ -20,10 +19,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, index, isProvider = 
   const { user } = useAuth();
   const { createConversation } = useChat();
 
-  // حماية ضد القيم الناقصة أو undefined/null
   if (!service) return null;
 
-  // استخدام قيم افتراضية إذا كانت البيانات ناقصة
   const title = service.title || "بدون عنوان";
   const description = service.description || "بدون وصف";
   const image = service.image_url || service.image || "/placeholder.jpg";
@@ -31,13 +28,6 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, index, isProvider = 
   const rating = typeof service.rating === 'number' ? service.rating : 0;
   const price = typeof service.price === 'number' ? service.price : 0;
   const features = Array.isArray(service.features) ? service.features : [];
-  const deliveryOptions = service.deliveryOptions || {
-    type: 'none',
-    price: null,
-    companyName: '',
-    areas: [],
-    estimatedTime: ''
-  };
 
   const toggleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -153,35 +143,8 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, index, isProvider = 
               )}
             </div>
 
-            {/* Delivery Options */}
-            {deliveryOptions && deliveryOptions.type !== 'none' && (
-              <div className="mt-3 p-2 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Truck className="w-4 h-4 text-primary-500 ml-1" />
-                    <span className="text-sm text-primary-600 dark:text-primary-400">
-                      {deliveryOptions.type === 'free' && 'توصيل مجاني'}
-                      {deliveryOptions.type === 'paid' && `توصيل ${deliveryOptions.price} ريال`}
-                      {deliveryOptions.type === 'company' && `توصيل عبر ${deliveryOptions.companyName}`}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <Clock className="w-4 h-4 text-primary-500 ml-1" />
-                    <span className="text-sm text-primary-600 dark:text-primary-400">
-                      {deliveryOptions.estimatedTime}
-                    </span>
-                  </div>
-                </div>
-                {deliveryOptions.areas && deliveryOptions.areas.length > 0 && (
-                  <div className="mt-1 text-xs text-secondary-500 dark:text-secondary-400">
-                    مناطق التغطية: {deliveryOptions.areas.join('، ')}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Commission info */}
-            <CommissionInfo commission={price * 0.05} />
+            {/* Commission info: تظهر فقط لمقدم الخدمة */}
+            {isProvider && <CommissionInfo commission={price * 0.05} />}
           </div>
         </motion.div>
       </Link>
