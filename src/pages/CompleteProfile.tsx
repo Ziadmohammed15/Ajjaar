@@ -101,6 +101,7 @@ const CompleteProfile = () => {
 
       console.log('Sending profile data:', updates);
 
+      // أضف أو حدث البروفايل
       const { data, error } = await supabase
         .from('profiles')
         .upsert(updates, { onConflict: 'id' })
@@ -118,6 +119,21 @@ const CompleteProfile = () => {
       }
 
       setProfile(data);
+
+      // عند أول اكتمال للملف الشخصي أو إذا كان نوع الحساب مقدم خدمة، أضف المستخدم إلى جدول providers تلقائيًا
+      if (userType === 'provider' && user.id) {
+        // upsert سيضيف الصف إذا لم يكن موجودًا، أو يتجاهله إذا كان موجودًا
+        const { error: providerError } = await supabase
+          .from('providers')
+          .upsert([{ id: user.id }], { onConflict: 'id' });
+
+        if (providerError) {
+          console.error('Error adding to providers:', providerError);
+          showError('حدث خطأ أثناء إضافة الحساب إلى مقدمي الخدمة');
+          return;
+        }
+      }
+
       showSuccess('تم تحديث الملف الشخصي بنجاح');
       if (userType === 'provider') {
         navigate('/provider/home');
