@@ -49,26 +49,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user && user.id) {
       const fetchProfile = async () => {
         try {
+          // جلب البروفايل بناءً على id فقط
           const { data, error } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
-            .maybeSingle(); // Changed from single() to maybeSingle()
+            .maybeSingle();
 
-          if (error && error.code !== 'PGRST116') { // Only throw if it's not a "no rows returned" error
+          if (error && error.code !== 'PGRST116') {
             throw error;
           }
 
           if (data) {
             setProfile(data);
           } else {
-            // If no profile exists, create a basic one
+            // أنشئ بروفايل جديد فقط إذا لم يوجد أبداً
             const { data: newProfile, error: createError } = await supabase
               .from('profiles')
-              .insert([{ id: user.id, email: user.email }])
+              .insert([{ id: user.id }])
               .select()
               .single();
 
