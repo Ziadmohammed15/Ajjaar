@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { services } from '../data/services';
+import { supabase } from '../services/supabaseClient';
 import SearchBar from '../components/SearchBar';
 import CategorySelector from '../components/CategorySelector';
 import ServiceCard from '../components/ServiceCard';
@@ -14,11 +14,28 @@ import NotificationBadge from '../components/NotificationBadge';
 import ServiceFilters from '../components/ServiceFilters';
 import { useAuth } from '../context/AuthContext';
 
+interface Service {
+  id: string;
+  provider_id: string;
+  title: string;
+  description: string;
+  price: number;
+  category: string;
+  subcategory?: string | null;
+  location: string;
+  image_url: string;
+  rating: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 interface HomeProps {
   isProvider?: boolean;
 }
 
 const Home: React.FC<HomeProps> = ({ isProvider }) => {
+  const [services, setServices] = useState<Service[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -36,12 +53,29 @@ const Home: React.FC<HomeProps> = ({ isProvider }) => {
     sortBy: 'recommended'
   });
 
+  // جلب الخدمات من supabase
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+    const fetchServices = async () => {
+      setIsLoading(true);
+      let query = supabase
+        .from('services')
+        .select('*')
+        .eq('status', 'active'); // فقط الخدمات النشطة
 
+      // فلترة حسب الفئة إذا تم تحديدها
+      if (params.categoryId && params.categoryId !== 'all') {
+        query = query.eq('category', params.categoryId);
+      }
+
+      const { data, error } = await query;
+
+      if (data) setServices(data);
+      setIsLoading(false);
+    };
+    fetchServices();
+  }, [params.categoryId]);
+
+  useEffect(() => {
     // Check if user should be reminded to set password
     if (user) {
       const hasBeenReminded = localStorage.getItem('password_reminder_shown');
@@ -53,8 +87,6 @@ const Home: React.FC<HomeProps> = ({ isProvider }) => {
         return () => clearTimeout(timer2);
       }
     }
-
-    return () => clearTimeout(timer);
   }, [user]);
 
   // حدد نوع المستخدم من الـ profile أو prop أو حتى من localStorage
@@ -67,6 +99,7 @@ const Home: React.FC<HomeProps> = ({ isProvider }) => {
   // حدد الفئة المختارة من المسار إذا كان هناك categoryId
   useEffect(() => {
     if (params.categoryId) setSelectedCategory(params.categoryId);
+    else setSelectedCategory('all');
   }, [params.categoryId]);
 
   const categoryOptions = [
@@ -88,8 +121,6 @@ const Home: React.FC<HomeProps> = ({ isProvider }) => {
   };
 
   const handleAddService = () => {
-    // السماح بالتصفح الحر للجميع.
-    // عند الضغط على إضافة خدمة، إذا لم يكن المستخدم مكتمل الملف، يوجه إلى إكمال الملف.
     if (!user || !profile || !profile.is_profile_complete) {
       navigate('/complete-profile');
     } else {
@@ -106,6 +137,7 @@ const Home: React.FC<HomeProps> = ({ isProvider }) => {
     profile.user_type === 'provider' &&
     profile.is_profile_complete;
 
+  // الفلترة محلياً بعد جلب الخدمات من supabase
   const filteredServices = services.filter(service => {
     const matchesSearch = service.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       service.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -132,7 +164,7 @@ const Home: React.FC<HomeProps> = ({ isProvider }) => {
       case 'rating_desc':
         return b.rating - a.rating;
       case 'newest':
-        return -1;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       default: // recommended
         return 0;
     }
