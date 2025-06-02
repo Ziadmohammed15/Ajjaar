@@ -13,10 +13,10 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [loginUsername, setLoginUsername] = useState('');
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -26,21 +26,25 @@ const Auth = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!loginUsername || !loginPassword) {
+    if (!loginEmail || !loginPassword) {
       setError('كل الحقول مطلوبة');
       return;
     }
     setIsSubmitting(true);
     try {
-      const { data: user, error: queryError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('username', loginUsername)
-        .maybeSingle();
-      if (queryError) throw new Error('حدث خطأ أثناء تسجيل الدخول');
-      if (!user) throw new Error('اسم المستخدم غير صحيح أو غير موجود');
-      if (loginPassword !== user.password) throw new Error('كلمة المرور غير صحيحة');
-      signIn(user);
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
+        password: loginPassword,
+      });
+      if (loginError || !data.user) {
+        throw new Error('بيانات الدخول غير صحيحة');
+      }
+      signIn({
+        id: data.user.id,
+        username: data.user.email, // أو أي اسم متاح
+        email: data.user.email,
+        profile_completed: false,
+      });
       showSuccess('تم تسجيل الدخول بنجاح');
       navigate('/user-type');
     } catch (error: any) {
@@ -55,8 +59,8 @@ const Auth = () => {
     e.preventDefault();
     setError(null);
 
-    if (!username) {
-      setError('اسم المستخدم مطلوب');
+    if (!email) {
+      setError('البريد الإلكتروني مطلوب');
       return;
     }
     if (!password) {
@@ -74,38 +78,26 @@ const Auth = () => {
 
     setIsSubmitting(true);
     try {
-      // تحقق تكرار اسم المستخدم
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', username)
-        .maybeSingle();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-      if (existingUser) {
-        setError('اسم المستخدم مستخدم بالفعل، يرجى اختيار اسم آخر');
+      if (signUpError) {
+        if (signUpError.message.includes("already registered")) {
+          setError('هذا البريد الإلكتروني مستخدم مسبقاً');
+        } else {
+          setError(signUpError.message);
+        }
         setIsSubmitting(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('users')
-        .insert([
-          {
-            username,
-            password,
-            profile_completed: false,
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      showSuccess('تم إنشاء الحساب بنجاح. يرجى اختيار نوع الحساب.');
-      navigate('/user-type');
-      setUsername('');
+      showSuccess('تم إنشاء الحساب بنجاح. يرجى تفعيل بريدك الإلكتروني ثم تسجيل الدخول.');
+      setEmail('');
       setPassword('');
       setConfirmPassword('');
+      setIsLogin(true);
     } catch (error: any) {
       setError(error.message || 'فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.');
     } finally {
@@ -155,18 +147,18 @@ const Auth = () => {
               <form onSubmit={handleLogin} className="glass-morphism p-6 rounded-2xl">
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    اسم المستخدم
+                    البريد الإلكتروني
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <User className="w-5 h-5 text-secondary-400" />
                     </div>
                     <input
-                      type="text"
+                      type="email"
                       className="input-field pr-12 text-left"
-                      placeholder="أدخل اسم المستخدم"
-                      value={loginUsername}
-                      onChange={(e) => setLoginUsername(e.target.value)}
+                      placeholder="أدخل بريدك الإلكتروني"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
                       required
                     />
                   </div>
@@ -238,18 +230,18 @@ const Auth = () => {
               <form onSubmit={handleRegister} className="glass-morphism p-6 rounded-2xl">
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
-                    اسم المستخدم
+                    البريد الإلكتروني
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <User className="w-5 h-5 text-secondary-400" />
                     </div>
                     <input
-                      type="text"
+                      type="email"
                       className="input-field pr-10"
-                      placeholder="اسم المستخدم"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="البريد الإلكتروني"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       required
                     />
                   </div>
