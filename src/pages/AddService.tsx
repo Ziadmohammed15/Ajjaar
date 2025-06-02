@@ -12,36 +12,9 @@ import RequireCompleteProfile from '../components/RequireCompleteProfile';
 
 // قائمة المحافظات السعودية
 const saudiCities = [
-  "الرياض",
-  "جدة",
-  "مكة المكرمة",
-  "المدينة المنورة",
-  "الدمام",
-  "الخبر",
-  "الطائف",
-  "تبوك",
-  "بريدة",
-  "خميس مشيط",
-  "حائل",
-  "الجبيل",
-  "أبها",
-  "نجران",
-  "ينبع",
-  "القنفذة",
-  "الظهران",
-  "سكاكا",
-  "عرعر",
-  "رفحاء",
-  "ضباء",
-  "الباحة",
-  "الزلفي",
-  "الدوادمي",
-  "وادي الدواسر",
-  "بيشة",
-  "النماص",
-  "بلجرشي",
-  "شرورة",
-  "الحوية"
+  "الرياض", "جدة", "مكة المكرمة", "المدينة المنورة", "الدمام", "الخبر", "الطائف", "تبوك", "بريدة", "خميس مشيط", "حائل",
+  "الجبيل", "أبها", "نجران", "ينبع", "القنفذة", "الظهران", "سكاكا", "عرعر", "رفحاء", "ضباء", "الباحة", "الزلفي",
+  "الدوادمي", "وادي الدواسر", "بيشة", "النماص", "بلجرشي", "شرورة", "الحوية"
 ];
 
 const AddService = () => {
@@ -74,7 +47,6 @@ const AddService = () => {
   });
 
   // التحقق من اكتمال الملف الشخصي قبل السماح بالنشر
-  // من خلال مكون RequireCompleteProfile
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,7 +131,7 @@ const AddService = () => {
 
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${Date.now()}.${fileExt}`;
+        const fileName = `${user.id}_${Date.now()}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
           .from('services')
@@ -167,11 +139,11 @@ const AddService = () => {
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
+        const { data } = supabase.storage
           .from('services')
           .getPublicUrl(fileName);
 
-        imageUrl = publicUrl;
+        imageUrl = data.publicUrl;
       }
 
       const { data: service, error: serviceError } = await supabase
@@ -318,7 +290,6 @@ const AddService = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
             className="space-y-4 mt-6"
           >
             <div>
