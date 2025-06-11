@@ -10,7 +10,7 @@ interface CommissionInfoProps {
 
 // توضيح: العمولة تظهر فقط لمقدم الخدمة (ليس للعميل)
 const CommissionInfo: React.FC<CommissionInfoProps> = ({ price, commission, showDetailed = false }) => {
-  const commissionRate = 0.05; // 5%
+  const commissionRate = 0.025; // 2.5%
   const commissionAmount = price ? price * commissionRate : commission || 0;
   const totalPrice = price ? price + commissionAmount : 0;
 
@@ -31,7 +31,7 @@ const CommissionInfo: React.FC<CommissionInfoProps> = ({ price, commission, show
                 <span className="font-medium dark:text-white">{price?.toFixed(2) || '0.00'} ريال</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-secondary-600 dark:text-secondary-300">عمولة المنصة (5%)</span>
+                <span className="text-secondary-600 dark:text-secondary-300">عمولة المنصة (2.5%)</span>
                 <span className="font-medium dark:text-white">{commissionAmount.toFixed(2)} ريال</span>
               </div>
               <div className="pt-2 border-t border-secondary-200 dark:border-secondary-700 flex justify-between">
@@ -48,7 +48,7 @@ const CommissionInfo: React.FC<CommissionInfoProps> = ({ price, commission, show
   return (
     <div className="mt-2 flex items-center text-xs text-secondary-500 dark:text-secondary-400">
       <Info className="w-3 h-3 ml-1" />
-      <span>عمولة المنصة (5%) يتحملها مقدم الخدمة فقط</span>
+      <span>عمولة المنصة (2.5%) يتحملها مقدم الخدمة فقط</span>
     </div>
   );
 };
