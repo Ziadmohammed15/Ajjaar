@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Star, MapPin, Heart, Share2, MessageCircle, User, Phone, 
+import {
+  Star, MapPin, Heart, Share2, MessageCircle, User, Phone,
   Calendar, Clock, ChevronLeft, ChevronRight, X, Check,
-  Shield, Award, Verified, Camera, ArrowLeft
+  Shield, Verified, Camera, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../services/supabaseClient';
@@ -12,7 +12,7 @@ import RatingStars from '../components/RatingStars';
 import { useAuth } from '../context/AuthContext';
 import { useChat } from '../context/ChatContext';
 import { useToast } from '../context/ToastContext';
-import { format, addDays, isAfter, isBefore, startOfDay } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { ar } from 'date-fns/locale';
 
 interface ServiceData {
@@ -74,22 +74,26 @@ const ServiceDetails = () => {
 
   // Available time slots
   const timeSlots = [
-    '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', 
+    '09:00', '10:00', '11:00', '12:00', '13:00', '14:00',
     '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
   ];
 
   useEffect(() => {
     fetchServiceDetails();
     checkIfFavorite();
+    // eslint-disable-next-line
   }, [id, user]);
 
   const fetchServiceDetails = async () => {
     if (!id) return;
-    
     setIsLoading(true);
     try {
-      // Fetch service with provider details
-      const { data: serviceData, error: serviceError } = await supabase
+      // جلب الخدمة مع محاولة جلب بيانات البروفايل (لو وجدت علاقة)
+      let serviceData: any = null;
+      let provider: any = null;
+
+      // حاول باستخدام join
+      const { data: joinedData, error: joinedError } = await supabase
         .from('services')
         .select(`
           *,
@@ -100,15 +104,36 @@ const ServiceDetails = () => {
         .eq('id', id)
         .single();
 
-      if (serviceError) throw serviceError;
+      if (!joinedError && joinedData) {
+        serviceData = joinedData;
+        provider = joinedData.provider;
+      } else {
+        // fallback: جلب الخدمة فقط
+        const { data: fallbackService, error: fallbackError } = await supabase
+          .from('services')
+          .select('*')
+          .eq('id', id)
+          .single();
+        serviceData = fallbackService;
+        if (serviceData?.provider_id) {
+          // جلب البروفايل يدويًا
+          const { data: providerProfile } = await supabase
+            .from('profiles')
+            .select('id, name, avatar_url, phone_verified, total_reviews, total_completed_services')
+            .eq('id', serviceData.provider_id)
+            .single();
+          provider = providerProfile;
+        }
+      }
+      if (!serviceData) throw new Error('Service not found');
 
-      // Fetch service features
+      // جلب الميزات
       const { data: featuresData } = await supabase
         .from('service_features')
         .select('feature')
         .eq('service_id', id);
 
-      // Fetch reviews with user profiles
+      // جلب التقييمات
       const { data: reviewsData } = await supabase
         .from('reviews')
         .select(`
@@ -119,21 +144,27 @@ const ServiceDetails = () => {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      // Check if provider is verified
-      const { data: providerData } = await supabase
-        .from('providers')
-        .select('verified')
-        .eq('id', serviceData.provider_id)
-        .single();
+      // تحقق من التوثيق (verified)
+      let providerVerified = false;
+      if (serviceData.provider_id) {
+        const { data: providerData } = await supabase
+          .from('providers')
+          .select('verified')
+          .eq('id', serviceData.provider_id)
+          .single();
+        providerVerified = !!providerData?.verified;
+      }
 
       setService({
         ...serviceData,
         features: featuresData?.map(f => f.feature) || [],
         reviews: reviewsData || [],
-        provider: {
-          ...serviceData.provider,
-          verified: providerData?.verified || false
-        }
+        provider: provider
+          ? {
+              ...provider,
+              verified: providerVerified
+            }
+          : undefined,
       });
     } catch (error) {
       console.error('Error fetching service:', error);
@@ -145,14 +176,12 @@ const ServiceDetails = () => {
 
   const checkIfFavorite = async () => {
     if (!user || !id) return;
-    
     const { data } = await supabase
       .from('favorites')
       .select('*')
       .eq('user_id', user.id)
       .eq('service_id', id)
       .single();
-    
     setIsFavorite(!!data);
   };
 
@@ -161,7 +190,6 @@ const ServiceDetails = () => {
       navigate('/auth');
       return;
     }
-
     try {
       if (isFavorite) {
         await supabase
@@ -191,7 +219,6 @@ const ServiceDetails = () => {
       text: service?.description || '',
       url: window.location.href
     };
-
     if (navigator.share) {
       try {
         await navigator.share(shareData);
@@ -199,7 +226,6 @@ const ServiceDetails = () => {
         // User cancelled sharing
       }
     } else {
-      // Fallback to clipboard
       await navigator.clipboard.writeText(window.location.href);
       showSuccess('تم نسخ رابط الخدمة!');
     }
@@ -210,13 +236,12 @@ const ServiceDetails = () => {
       navigate('/auth');
       return;
     }
-
     if (!profile?.is_profile_complete) {
       navigate('/complete-profile');
       return;
     }
-
-    const conversationId = await createConversation(service?.provider_id!, Number(id));
+    if (!service?.provider_id) return;
+    const conversationId = await createConversation(service.provider_id, Number(id));
     if (conversationId) {
       navigate(`/chat/${conversationId}`);
     }
@@ -227,23 +252,19 @@ const ServiceDetails = () => {
       navigate('/auth');
       return;
     }
-
     if (!profile?.is_profile_complete) {
       navigate('/complete-profile');
       return;
     }
-
     if (!selectedDate || !selectedTime) {
       showError('يرجى اختيار التاريخ والوقت');
       return;
     }
-
     setIsBooking(true);
     try {
-      const commission = (service?.price || 0) * 0.05;
+      const commission = (service?.price || 0) * 0.025; // 2.5%
       const vat = (service?.price || 0) * 0.15;
       const totalPrice = (service?.price || 0) + commission + vat;
-
       const { error } = await supabase
         .from('bookings')
         .insert({
@@ -256,9 +277,7 @@ const ServiceDetails = () => {
           commission: commission,
           status: 'pending'
         });
-
       if (error) throw error;
-
       showSuccess('تم إرسال طلب الحجز بنجاح');
       setShowBookingModal(false);
       navigate('/booking-confirmation');
@@ -272,7 +291,7 @@ const ServiceDetails = () => {
 
   const nextImage = () => {
     if (service?.images) {
-      setCurrentImageIndex((prev) => 
+      setCurrentImageIndex((prev) =>
         prev === service.images!.length - 1 ? 0 : prev + 1
       );
     }
@@ -280,7 +299,7 @@ const ServiceDetails = () => {
 
   const prevImage = () => {
     if (service?.images) {
-      setCurrentImageIndex((prev) => 
+      setCurrentImageIndex((prev) =>
         prev === 0 ? service.images!.length - 1 : prev - 1
       );
     }
@@ -309,7 +328,7 @@ const ServiceDetails = () => {
           <p className="text-secondary-600 dark:text-secondary-400 mb-4">
             لم يتم العثور على الخدمة المطلوبة
           </p>
-          <button 
+          <button
             onClick={() => navigate('/home')}
             className="btn-primary"
           >
@@ -321,15 +340,15 @@ const ServiceDetails = () => {
   }
 
   const isProvider = profile?.user_type === 'provider' && user?.id === service.provider_id;
-  const serviceImages = service.images && service.images.length > 0 
-    ? service.images 
+  const serviceImages = service.images && service.images.length > 0
+    ? service.images
     : [service.image_url];
 
   return (
     <div className="app-container">
       {/* Header */}
       <div className="sticky top-0 z-10 backdrop-blur-glass bg-white/80 dark:bg-secondary-900/80 py-4 px-4 flex items-center justify-between border-b border-secondary-100/50 dark:border-secondary-800/50">
-        <motion.button 
+        <motion.button
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => navigate(-1)}
@@ -337,9 +356,8 @@ const ServiceDetails = () => {
         >
           <ArrowLeft className="w-5 h-5 text-secondary-700 dark:text-secondary-300" />
         </motion.button>
-        
         <div className="flex items-center space-x-3 rtl:space-x-reverse">
-          <motion.button 
+          <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleShare}
@@ -347,8 +365,7 @@ const ServiceDetails = () => {
           >
             <Share2 className="w-5 h-5 text-secondary-700 dark:text-secondary-300" />
           </motion.button>
-          
-          <motion.button 
+          <motion.button
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             onClick={toggleFavorite}
@@ -361,7 +378,7 @@ const ServiceDetails = () => {
 
       {/* Image Gallery */}
       <div className="relative">
-        <div 
+        <div
           className="h-64 bg-secondary-100 dark:bg-secondary-800 cursor-pointer relative overflow-hidden"
           onClick={() => setShowImageGallery(true)}
         >
@@ -373,7 +390,6 @@ const ServiceDetails = () => {
               e.currentTarget.src = 'https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=800&h=600&fit=crop';
             }}
           />
-          
           {serviceImages.length > 1 && (
             <>
               <button
@@ -388,20 +404,16 @@ const ServiceDetails = () => {
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
-              
               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 rtl:space-x-reverse">
                 {serviceImages.map((_, index) => (
                   <div
                     key={index}
-                    className={`w-2 h-2 rounded-full ${
-                      index === currentImageIndex ? 'bg-white' : 'bg-white/50'
-                    }`}
+                    className={`w-2 h-2 rounded-full ${index === currentImageIndex ? 'bg-white' : 'bg-white/50'}`}
                   />
                 ))}
               </div>
             </>
           )}
-          
           <div className="absolute top-4 right-4 bg-black/50 text-white px-2 py-1 rounded-lg flex items-center">
             <Camera className="w-4 h-4 mr-1" />
             <span className="text-sm">{serviceImages.length}</span>
@@ -419,7 +431,6 @@ const ServiceDetails = () => {
               <span>{service.location}</span>
             </div>
           </div>
-          
           <div className="text-left">
             <div className="text-2xl font-bold text-primary-600 dark:text-primary-400">
               {service.price} ريال
@@ -427,7 +438,6 @@ const ServiceDetails = () => {
             <div className="text-sm text-secondary-500 dark:text-secondary-400">للساعة</div>
           </div>
         </div>
-
         {/* Rating */}
         <div className="flex items-center mb-4">
           <div className="flex items-center bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1 rounded-full">
@@ -438,7 +448,6 @@ const ServiceDetails = () => {
             </span>
           </div>
         </div>
-
         {/* Provider Info */}
         {service.provider && (
           <div className="card-glass p-4 mb-4">
@@ -447,7 +456,7 @@ const ServiceDetails = () => {
               <div className="flex items-center">
                 <div className="relative">
                   <div className="w-12 h-12 rounded-full overflow-hidden">
-                    <img 
+                    <img
                       src={service.provider.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.provider.name)}&background=random`}
                       alt={service.provider.name}
                       className="w-full h-full object-cover"
@@ -459,7 +468,6 @@ const ServiceDetails = () => {
                     </div>
                   )}
                 </div>
-                
                 <div className="mr-3">
                   <div className="flex items-center">
                     <h4 className="font-medium dark:text-white">{service.provider.name}</h4>
@@ -475,7 +483,6 @@ const ServiceDetails = () => {
                   </div>
                 </div>
               </div>
-              
               <div className="flex space-x-2 rtl:space-x-reverse">
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -485,7 +492,6 @@ const ServiceDetails = () => {
                 >
                   <MessageCircle className="w-4 h-4" />
                 </motion.button>
-                
                 {service.provider.phone_verified && (
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -499,7 +505,6 @@ const ServiceDetails = () => {
             </div>
           </div>
         )}
-
         {/* Description */}
         <div className="mb-4">
           <h3 className="font-bold mb-2 dark:text-white">وصف الخدمة</h3>
@@ -507,7 +512,6 @@ const ServiceDetails = () => {
             {service.description}
           </p>
         </div>
-
         {/* Features */}
         {service.features && service.features.length > 0 && (
           <div className="mb-4">
@@ -522,12 +526,10 @@ const ServiceDetails = () => {
             </div>
           </div>
         )}
-
         {/* Commission Info for Providers */}
         {isProvider && (
           <CommissionInfo price={service.price} showDetailed={true} />
         )}
-
         {/* Reviews */}
         {service.reviews && service.reviews.length > 0 && (
           <div className="mb-6">
@@ -542,19 +544,17 @@ const ServiceDetails = () => {
                 </button>
               )}
             </div>
-            
             <div className="space-y-4">
               {(showAllReviews ? service.reviews : service.reviews.slice(0, 3)).map((review, index) => (
                 <div key={index} className="card-glass p-4">
                   <div className="flex items-start">
                     <div className="w-10 h-10 rounded-full overflow-hidden">
-                      <img 
+                      <img
                         src={review.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.user?.name || 'مستخدم')}&background=random`}
                         alt={review.user?.name || 'مستخدم'}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    
                     <div className="mr-3 flex-1">
                       <div className="flex items-center justify-between mb-1">
                         <h4 className="font-medium dark:text-white">{review.user?.name || 'مستخدم'}</h4>
@@ -562,9 +562,7 @@ const ServiceDetails = () => {
                           {format(new Date(review.created_at), 'dd/MM/yyyy')}
                         </span>
                       </div>
-                      
                       <RatingStars rating={review.rating} size="sm" className="mb-2" />
-                      
                       {review.comment && (
                         <p className="text-secondary-700 dark:text-secondary-300 text-sm">
                           {review.comment}
@@ -578,7 +576,6 @@ const ServiceDetails = () => {
           </div>
         )}
       </div>
-
       {/* Bottom Action Bar */}
       {!isProvider && (
         <div className="sticky bottom-0 bg-white dark:bg-secondary-900 border-t border-secondary-100 dark:border-secondary-800 p-4">
@@ -592,7 +589,6 @@ const ServiceDetails = () => {
               <MessageCircle className="w-5 h-5 ml-2" />
               تواصل
             </motion.button>
-            
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -605,7 +601,6 @@ const ServiceDetails = () => {
           </div>
         </div>
       )}
-
       {/* Image Gallery Modal */}
       <AnimatePresence>
         {showImageGallery && (
@@ -622,7 +617,6 @@ const ServiceDetails = () => {
             >
               <X className="w-5 h-5" />
             </button>
-            
             <div className="relative w-full h-full flex items-center justify-center">
               <img
                 src={serviceImages[currentImageIndex]}
@@ -630,7 +624,6 @@ const ServiceDetails = () => {
                 className="max-w-full max-h-full object-contain"
                 onClick={(e) => e.stopPropagation()}
               />
-              
               {serviceImages.length > 1 && (
                 <>
                   <button
@@ -651,7 +644,6 @@ const ServiceDetails = () => {
           </motion.div>
         )}
       </AnimatePresence>
-
       {/* Booking Modal */}
       <AnimatePresence>
         {showBookingModal && (
@@ -679,7 +671,6 @@ const ServiceDetails = () => {
                     <X className="w-5 h-5 text-secondary-500" />
                   </button>
                 </div>
-
                 {/* Service Summary */}
                 <div className="card-glass p-4 mb-6">
                   <div className="flex items-center">
@@ -697,7 +688,6 @@ const ServiceDetails = () => {
                     </div>
                   </div>
                 </div>
-
                 {/* Date Selection */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-3">
@@ -722,7 +712,6 @@ const ServiceDetails = () => {
                     ))}
                   </div>
                 </div>
-
                 {/* Time Selection */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-3">
@@ -744,7 +733,6 @@ const ServiceDetails = () => {
                     ))}
                   </div>
                 </div>
-
                 {/* Notes */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
@@ -758,7 +746,6 @@ const ServiceDetails = () => {
                     rows={3}
                   />
                 </div>
-
                 {/* Price Summary */}
                 <div className="card-glass p-4 mb-6">
                   <h4 className="font-medium mb-3 dark:text-white">ملخص السعر</h4>
@@ -768,8 +755,8 @@ const ServiceDetails = () => {
                       <span className="dark:text-white">{service.price} ريال</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-secondary-600 dark:text-secondary-300">عمولة المنصة (5%)</span>
-                      <span className="dark:text-white">{(service.price * 0.05).toFixed(2)} ريال</span>
+                      <span className="text-secondary-600 dark:text-secondary-300">عمولة المنصة (2.5%)</span>
+                      <span className="dark:text-white">{(service.price * 0.025).toFixed(2)} ريال</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-secondary-600 dark:text-secondary-300">ضريبة القيمة المضافة (15%)</span>
@@ -778,12 +765,11 @@ const ServiceDetails = () => {
                     <div className="border-t border-secondary-200 dark:border-secondary-700 pt-2 flex justify-between font-bold">
                       <span className="dark:text-white">المجموع</span>
                       <span className="text-primary-600 dark:text-primary-400">
-                        {(service.price + service.price * 0.05 + service.price * 0.15).toFixed(2)} ريال
+                        {(service.price + service.price * 0.025 + service.price * 0.15).toFixed(2)} ريال
                       </span>
                     </div>
                   </div>
                 </div>
-
                 {/* Action Buttons */}
                 <div className="flex space-x-3 rtl:space-x-reverse">
                   <button
