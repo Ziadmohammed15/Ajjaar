@@ -9,7 +9,6 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
 import RequireCompleteProfile from '../components/RequireCompleteProfile';
 
-// قائمة المحافظات السعودية
 const saudiCities = [
   "الرياض", "جدة", "مكة المكرمة", "المدينة المنورة", "الدمام", "الخبر", "الطائف", "تبوك",
   "بريدة", "خميس مشيط", "حائل", "الجبيل", "أبها", "نجران", "ينبع", "القنفذة", "الظهران",
@@ -33,8 +32,7 @@ const AddService = () => {
     category: '',
     subcategory: '',
     location: '',
-    features: [] as string[],
-    image: null as File | null
+    features: [] as string[]
   });
 
   const [newFeature, setNewFeature] = useState('');
@@ -83,26 +81,30 @@ const AddService = () => {
   };
 
   const handlePublish = async () => {
-    if (!validateForm()) return;
-    if (!user) { showError('يجب تسجيل الدخول أولاً'); return; }
+    if (!validateForm() || !user) return;
     setIsSubmitting(true);
 
     try {
       let imageUrl = '';
+      // رفع الصورة أولاً إذا تم اختيارها
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `${user.id}_${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from('services')
           .upload(fileName, imageFile);
+
         if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage
+        // التأكد من أن publicUrl موجود فعلاً (بعض نسخ supabase قد تعيد undefined)
+        const { data: publicUrlData } = supabase.storage
           .from('services')
           .getPublicUrl(fileName);
-        imageUrl = publicUrl;
+        imageUrl = publicUrlData?.publicUrl || '';
+        if (!imageUrl) throw new Error('لم يتم الحصول على رابط الصورة');
       }
 
-      const { data: service, error: serviceError } = await supabase
+      // إضافة الخدمة إلى قاعدة البيانات
+      const { data: inserted, error: serviceError } = await supabase
         .from('services')
         .insert({
           title: formData.title,
@@ -113,20 +115,21 @@ const AddService = () => {
           location: formData.location,
           image_url: imageUrl,
           provider_id: user.id,
-          status: 'active',
+          status: 'active', // مهم جدا
           rating: 0
         })
         .select()
         .single();
 
-      if (serviceError) throw serviceError;
+      if (serviceError || !inserted) throw serviceError || new Error('فشل حفظ الخدمة');
 
+      // حفظ المميزات إن وجدت
       if (formData.features.length > 0) {
         const { error: featuresError } = await supabase
           .from('service_features')
           .insert(
             formData.features.map(feature => ({
-              service_id: service.id,
+              service_id: inserted.id,
               feature
             }))
           );
@@ -135,9 +138,9 @@ const AddService = () => {
 
       showSuccess('تم نشر الخدمة بنجاح');
       navigate('/provider/my-services');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error publishing service:', error);
-      showError('حدث خطأ أثناء نشر الخدمة');
+      showError(error?.message || 'حدث خطأ أثناء نشر الخدمة');
     } finally {
       setIsSubmitting(false);
     }
@@ -222,6 +225,8 @@ const AddService = () => {
             transition={{ delay: 0.1 }}
             className="space-y-4 mt-6"
           >
+            {/* باقي حقول النموذج كما هي */}
+            {/* ... العنوان والوصف والسعر والموقع ... */}
             <div>
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                 عنوان الخدمة
@@ -237,7 +242,6 @@ const AddService = () => {
                 />
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                 وصف الخدمة
@@ -253,7 +257,6 @@ const AddService = () => {
                 />
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                 السعر
@@ -269,7 +272,6 @@ const AddService = () => {
                 />
               </div>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
                 الموقع
@@ -280,10 +282,9 @@ const AddService = () => {
                   type="text"
                   value={formData.location}
                   onClick={() => setShowCitiesModal(true)}
-                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                  readOnly
                   className="input-field pr-10 cursor-pointer"
                   placeholder="اختر موقع الخدمة"
-                  readOnly
                 />
                 <ChevronDown className="absolute left-3 top-1/2 transform -translate-y-1/2 text-secondary-400" />
               </div>
@@ -308,15 +309,7 @@ const AddService = () => {
                       ×
                     </button>
                   </div>
-                  <div className="relative mt-3">
-                    <input
-                      type="text"
-                      placeholder="ابحث عن محافظة..."
-                      className="input-field w-full"
-                    />
-                  </div>
                 </div>
-
                 <div className="p-2">
                   {saudiCities.map((city, index) => (
                     <button
@@ -336,6 +329,7 @@ const AddService = () => {
             </div>
           )}
 
+          {/* اختيار الفئة والفئة الفرعية */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -363,7 +357,6 @@ const AddService = () => {
                 ))}
               </select>
             </div>
-
             {formData.category && getSubcategoriesByParent(formData.category).length > 0 && (
               <div>
                 <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300 mb-2">
@@ -385,6 +378,7 @@ const AddService = () => {
             )}
           </motion.div>
 
+          {/* مميزات الخدمة */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -394,7 +388,6 @@ const AddService = () => {
             <label className="block text-sm font-medium text-secondary-700 dark:text-secondary-300">
               مميزات الخدمة
             </label>
-
             <div className="flex space-x-2 rtl:space-x-reverse">
               <input
                 type="text"
@@ -413,7 +406,6 @@ const AddService = () => {
                 <Plus className="w-5 h-5" />
               </motion.button>
             </div>
-
             <div className="space-y-2">
               {formData.features.map((feature, index) => (
                 <motion.div
