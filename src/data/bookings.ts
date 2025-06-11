@@ -8,6 +8,7 @@ export interface Booking {
   status: 'pending' | 'confirmed' | 'cancelled';
   location: string;
   reviewed: boolean;
+  // يمكنك إضافة خصائص مثل client, provider, total_price, commission مستقبلاً
 }
 
 export const bookings: Booking[] = [
