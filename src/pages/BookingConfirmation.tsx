@@ -25,7 +25,7 @@ const BookingConfirmation = () => {
   };
 
   // Calculate commission and VAT
-  const commission = bookingDetails.price * 0.05; // 5% commission
+  const commission = bookingDetails.price * 0.025; // 2.5% commission
   const vat = bookingDetails.price * 0.15; // 15% VAT
   const total = bookingDetails.price + commission + vat;
 
@@ -153,7 +153,7 @@ const BookingConfirmation = () => {
               <span className="font-medium dark:text-white">{bookingDetails.price} ريال</span>
             </div>
             <div className="flex justify-between items-center mb-2">
-              <span className="text-secondary-600 dark:text-secondary-400">عمولة المنصة (5%)</span>
+              <span className="text-secondary-600 dark:text-secondary-400">عمولة المنصة (2.5%)</span>
               <span className="font-medium dark:text-white">{commission.toFixed(2)} ريال</span>
             </div>
             <div className="flex justify-between items-center mb-2">
