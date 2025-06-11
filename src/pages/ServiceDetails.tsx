@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Star, MapPin, Heart, Share2, MessageCircle, User, Phone,
   Calendar, Clock, ChevronLeft, ChevronRight, X, Check,
-  Shield, Verified, Camera, ArrowLeft
+  Shield, Verified, Camera, ArrowLeft, Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../services/supabaseClient';
@@ -55,6 +55,7 @@ const ServiceDetails = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showImageGallery, setShowImageGallery] = useState(false);
+  const [showProviderModal, setShowProviderModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedTime, setSelectedTime] = useState<string>('');
@@ -88,17 +89,16 @@ const ServiceDetails = () => {
     if (!id) return;
     setIsLoading(true);
     try {
-      // جلب الخدمة مع محاولة جلب بيانات البروفايل (لو وجدت علاقة)
       let serviceData: any = null;
       let provider: any = null;
 
-      // حاول باستخدام join
+      // Try join
       const { data: joinedData, error: joinedError } = await supabase
         .from('services')
         .select(`
           *,
           provider:profiles!services_provider_id_fkey(
-            id, name, avatar_url, phone_verified, total_reviews, total_completed_services
+            id, name, avatar_url, phone_verified, total_reviews, total_completed_services, rating, phone
           )
         `)
         .eq('id', id)
@@ -108,18 +108,17 @@ const ServiceDetails = () => {
         serviceData = joinedData;
         provider = joinedData.provider;
       } else {
-        // fallback: جلب الخدمة فقط
-        const { data: fallbackService, error: fallbackError } = await supabase
+        // fallback to manual provider fetch
+        const { data: fallbackService } = await supabase
           .from('services')
           .select('*')
           .eq('id', id)
           .single();
         serviceData = fallbackService;
         if (serviceData?.provider_id) {
-          // جلب البروفايل يدويًا
           const { data: providerProfile } = await supabase
             .from('profiles')
-            .select('id, name, avatar_url, phone_verified, total_reviews, total_completed_services')
+            .select('id, name, avatar_url, phone_verified, total_reviews, total_completed_services, rating, phone')
             .eq('id', serviceData.provider_id)
             .single();
           provider = providerProfile;
@@ -127,13 +126,13 @@ const ServiceDetails = () => {
       }
       if (!serviceData) throw new Error('Service not found');
 
-      // جلب الميزات
+      // Features
       const { data: featuresData } = await supabase
         .from('service_features')
         .select('feature')
         .eq('service_id', id);
 
-      // جلب التقييمات
+      // Reviews
       const { data: reviewsData } = await supabase
         .from('reviews')
         .select(`
@@ -144,7 +143,7 @@ const ServiceDetails = () => {
         .order('created_at', { ascending: false })
         .limit(10);
 
-      // تحقق من التوثيق (verified)
+      // Verified
       let providerVerified = false;
       if (serviceData.provider_id) {
         const { data: providerData } = await supabase
@@ -222,9 +221,7 @@ const ServiceDetails = () => {
     if (navigator.share) {
       try {
         await navigator.share(shareData);
-      } catch (error) {
-        // User cancelled sharing
-      }
+      } catch (error) {}
     } else {
       await navigator.clipboard.writeText(window.location.href);
       showSuccess('تم نسخ رابط الخدمة!');
@@ -438,6 +435,17 @@ const ServiceDetails = () => {
             <div className="text-sm text-secondary-500 dark:text-secondary-400">للساعة</div>
           </div>
         </div>
+        {/* زر معلومات مقدم الخدمة */}
+        {service.provider && (
+          <button
+            onClick={() => setShowProviderModal(true)}
+            className="flex items-center gap-1 text-primary-600 dark:text-primary-400 mb-4"
+          >
+            <Info className="w-5 h-5" />
+            <span>معلومات مقدم الخدمة</span>
+          </button>
+        )}
+
         {/* Rating */}
         <div className="flex items-center mb-4">
           <div className="flex items-center bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1 rounded-full">
@@ -448,7 +456,7 @@ const ServiceDetails = () => {
             </span>
           </div>
         </div>
-        {/* Provider Info */}
+        {/* Provider Info (مختصر) */}
         {service.provider && (
           <div className="card-glass p-4 mb-4">
             <h3 className="font-bold mb-3 dark:text-white">مقدم الخدمة</h3>
@@ -796,6 +804,59 @@ const ServiceDetails = () => {
                     )}
                   </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      {/* Provider Details Modal */}
+      <AnimatePresence>
+        {showProviderModal && service.provider && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+            onClick={() => setShowProviderModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white dark:bg-secondary-900 rounded-2xl shadow-xl w-full max-w-md p-6 relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                className="absolute top-3 left-3 p-2 rounded-full hover:bg-secondary-100 dark:hover:bg-secondary-800"
+                onClick={() => setShowProviderModal(false)}
+              >
+                <X className="w-5 h-5 text-secondary-400" />
+              </button>
+              <div className="flex flex-col items-center">
+                <img
+                  src={service.provider.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(service.provider.name)}&background=random`}
+                  alt={service.provider.name}
+                  className="w-20 h-20 rounded-full mb-3 object-cover"
+                />
+                <h3 className="text-xl font-bold mb-1 dark:text-white">{service.provider.name}</h3>
+                {service.provider.verified && (
+                  <span className="inline-flex items-center text-xs text-blue-500 mb-2">
+                    <Shield className="w-4 h-4 mr-1" /> موثّق
+                  </span>
+                )}
+                <div className="text-secondary-700 dark:text-secondary-300 text-sm mb-1">
+                  <Star className="w-4 h-4 inline mr-1 text-yellow-500" />
+                  {service.provider.rating || 0} ({service.provider.total_reviews || 0} تقييم)
+                </div>
+                <div className="text-secondary-500 dark:text-secondary-400 text-sm mb-1">
+                  <User className="w-4 h-4 inline mr-1" />
+                  {service.provider.total_completed_services || 0} خدمة مكتملة
+                </div>
+                {service.provider.phone && (
+                  <div className="text-secondary-500 dark:text-secondary-400 text-sm mb-1">
+                    <Phone className="w-4 h-4 inline mr-1" /> {service.provider.phone}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
